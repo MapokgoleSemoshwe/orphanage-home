@@ -25,7 +25,7 @@
     </div>
     <div id="userMenu" style="display:none; align-items:center; gap:12px;">
       <span id="userNameDisplay" style="font-weight:500; color:#0f172a;"></span>
-      <button id="logoutBtn" class="btn btn-outline" style="padding:6px 14px; font-size:0.85rem;">Logout</button>
+      <button id="logoutBtn" class="btn btn-outline" style="padding:6px 14px; font-size:0.85rem; cursor:pointer;">Logout</button>
     </div>
   </header>
 
@@ -78,8 +78,20 @@
     </div>
   </footer>
 
+  <script type="importmap">
+    {
+      "imports": {
+        "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
+      }
+    }
+  </script>
+
   <script type="module">
-    import { supabase } from './supabase-config.js'
+    import { createClient } from '@supabase/supabase-js'
+
+    const supabaseUrl = 'https://irzqdsxdiifosqzqdypj.supabase.co'
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyenFkc3hkaWlmb3NxenFkeXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTgwMjYsImV4cCI6MjA5ODk5NDAyNn0.2mzC2WjiVIN2imGfKh0aKhdP97PCT6eLsTxOS4lfbh0'
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
     const authButtons = document.getElementById('authButtons')
     const userMenu = document.getElementById('userMenu')
@@ -114,11 +126,14 @@
         userMenu.style.display = 'none'
         dashboardLink.style.display = 'none'
         
-        donateBtn.href = '#'
-        donateBtn.onclick = (e) => {
+        donateBtn.href = 'javascript:void(0)'
+        donateBtn.onclick = function(e) {
           e.preventDefault()
-          alert('Please sign in or create an account to donate.')
-          window.location.href = 'login.html?return=donate.html'
+          e.stopPropagation()
+          const shouldLogin = confirm('Please sign in or create an account to donate. Click OK to login.')
+          if (shouldLogin) {
+            window.location.href = 'login.html?return=donate.html'
+          }
         }
       }
     }

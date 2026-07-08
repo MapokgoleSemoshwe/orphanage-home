@@ -74,6 +74,13 @@
     }
     .auth-required h2 { margin-bottom: 12px; }
     .auth-required .btn-group { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+    .loading-spinner {
+      display: none;
+      text-align: center;
+      margin-top: 12px;
+      color: #64748b;
+    }
+    .loading-spinner.active { display: block; }
   </style>
 </head>
 <body>
@@ -81,8 +88,20 @@
     <!-- Will be populated by JavaScript -->
   </div>
 
+  <script type="importmap">
+    {
+      "imports": {
+        "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
+      }
+    }
+  </script>
+
   <script type="module">
-    import { supabase } from './supabase-config.js'
+    import { createClient } from '@supabase/supabase-js'
+
+    const supabaseUrl = 'https://irzqdsxdiifosqzqdypj.supabase.co'
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyenFkc3hkaWlmb3NxenFkeXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTgwMjYsImV4cCI6MjA5ODk5NDAyNn0.2mzC2WjiVIN2imGfKh0aKhdP97PCT6eLsTxOS4lfbh0'
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
     const container = document.getElementById('donateContainer')
     let currentUser = null
@@ -173,8 +192,9 @@
           </div>
           
           <div id="successMessage" class="success-message"></div>
+          <div id="loadingSpinner" class="loading-spinner">⏳ Processing donation...</div>
           
-          <button type="submit" class="btn btn-primary btn-block">Donate Now</button>
+          <button type="submit" class="btn btn-primary btn-block" id="donateSubmitBtn">Donate Now</button>
         </form>
         
         <div style="text-align: center; margin-top: 16px;">
@@ -200,7 +220,11 @@
         }
       })
 
-      document.getElementById('donateForm').addEventListener('submit', async (e) => {
+      const form = document.getElementById('donateForm')
+      const submitBtn = document.getElementById('donateSubmitBtn')
+      const loadingSpinner = document.getElementById('loadingSpinner')
+      
+      form.addEventListener('submit', async (e) => {
         e.preventDefault()
         
         let amount = 0
@@ -221,6 +245,9 @@
         const message = document.getElementById('message').value.trim()
         const successMessage = document.getElementById('successMessage')
         successMessage.style.display = 'none'
+        loadingSpinner.classList.add('active')
+        submitBtn.disabled = true
+        submitBtn.textContent = 'Processing...'
         
         try {
           const { error } = await supabase
@@ -263,9 +290,16 @@
           currentProfile.total_donated = (currentProfile?.total_donated || 0) + amount
           document.getElementById('balanceDisplay').textContent = `$${currentProfile.total_donated.toFixed(2)}`
           
+          loadingSpinner.classList.remove('active')
+          submitBtn.disabled = false
+          submitBtn.textContent = 'Donate Now'
+          
         } catch (error) {
           console.error('Donation error:', error)
           alert('Failed to process donation. Please try again.')
+          loadingSpinner.classList.remove('active')
+          submitBtn.disabled = false
+          submitBtn.textContent = 'Donate Now'
         }
       })
     }
