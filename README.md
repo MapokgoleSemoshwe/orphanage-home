@@ -110,6 +110,7 @@ Or use the [Live Server](https://marketplace.visualstudio.com/items?itemName=rit
 | `Semoshwe` | Active development branch |
 | `Sisanda` | Active development branch |
 
+
 ---
 
 ## Contributing
@@ -118,6 +119,7 @@ Or use the [Live Server](https://marketplace.visualstudio.com/items?itemName=rit
 2. Create a feature branch (`git checkout -b feature/your-feature`)
 3. Commit your changes
 4. Push to your branch and open a pull request against
+
 
 ---
 
