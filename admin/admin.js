@@ -4,6 +4,13 @@
 
 'use strict';
 
+/* ===== SUPABASE CLIENT ===== */
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+const _supabaseUrl  = 'https://irzqdsxdiifosqzqdypj.supabase.co';
+const _supabaseKey  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyenFkc3hkaWlmb3NxenFkeXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTgwMjYsImV4cCI6MjA5ODk5NDAyNn0.2mzC2WjiVIN2imGfKh0aKhdP97PCT6eLsTxOS4lfbh0';
+const DB = createClient(_supabaseUrl, _supabaseKey);
+
 /* ===== STORAGE HELPERS ===== */
 const Store = {
   get(key, fallback = []) {
@@ -211,7 +218,8 @@ const Search = {
 /* ===== STATS ===== */
 const Stats = {
   update() {
-    const donations   = Store.get('hh_donations', []);
+    // Use the live merged list from Donations (DB + local)
+    const donations   = Donations.all ? Donations.all() : Store.get('hh_donations', []);
     const volunteers  = Store.get('hh_volunteers', []);
     const sponsors    = Store.get('hh_sponsorships', []);
     const events      = Store.get('hh_events', []);
@@ -247,7 +255,7 @@ const Charts = {
     this.renderVolunteer();
   },
   renderDonation() {
-    const donations = Store.get('hh_donations', []);
+    const donations = Donations.all ? Donations.all() : Store.get('hh_donations', []);
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const totals = Array(12).fill(0);
     donations.filter(d => d.status === 'Completed').forEach(d => {
@@ -436,27 +444,109 @@ const Volunteers = {
   }
 };
 
-/* ===== DONATIONS ===== */
+/* ===== DONATIONS (Supabase-backed) ===== */
 const Donations = {
-  KEY: 'hh_donations',
+  KEY: 'hh_donations',       // kept for manually-recorded local donations only
+  _dbRows: [],               // cache of rows fetched from Supabase
+  _localRows: [],            // manually-added records (not from DB)
+  _ready: false,             // true once DB fetch completes
+
   init() {
-    this.render();
+    // Purge any old demo/seed data from localStorage.
+    // Only keep records that were explicitly manually added (_source === 'local').
+    const existing = Store.get(this.KEY, []);
+    const local = existing.filter(d => d._source === 'local');
+    Store.set(this.KEY, local);
+    this._localRows = local;
+
     document.getElementById('add-donation-btn').addEventListener('click', () => this.openForm());
     document.getElementById('don-search').addEventListener('input', () => this.render());
     document.getElementById('don-filter').addEventListener('change', () => this.render());
+    this.render();       // show loading spinner immediately
+    this.loadFromDB();   // then fetch live data from Supabase
   },
-  all()  { return Store.get(this.KEY, []); },
-  save(list) { Store.set(this.KEY, list); Stats.update(); Charts.renderDonation(); },
+
+  /* ---- Fetch all donations from Supabase ---- */
+  async loadFromDB() {
+    try {
+      Loading.show();
+
+      // Try fetching with donor_name column (new rows have this)
+      // Also try join for older rows that may not have donor_name
+      let data, error;
+      ({ data, error } = await DB
+        .from('donations')
+        .select('*')
+        .order('created_at', { ascending: false }));
+
+      // If that fails, something fundamental is wrong
+      if (error) throw error;
+
+      console.log('Donations fetched from DB:', data?.length, data);
+
+      if (!data || data.length === 0) {
+        Toast.show('No donations found in database yet.', 'info');
+      }
+
+      // Normalise rows — handle both old rows (no donor_name) and new rows (with donor_name)
+      this._dbRows = (data || []).map(d => ({
+        id:      d.id,
+        user_id: d.user_id,
+        name:    d.donor_name || d.user_email || 'Anonymous',
+        email:   d.user_email || '',
+        amount:  Math.abs(parseFloat(d.amount || 0)), // stored as negative
+        date:    d.created_at,
+        status:  d.status === 'donation' ? 'Completed' : (d.status || 'Completed'),
+        notes:   d.message || '',
+        _source: 'db'
+      }));
+
+    } catch (err) {
+      console.error('Donations DB error:', err);
+      Toast.show('Could not load donations — check RLS policies in Supabase: ' + err.message, 'error');
+    } finally {
+      Loading.hide();
+    }
+
+    this._ready = true;
+    this._merged = [...this._dbRows, ...this._localRows];
+    this.render();
+    Stats.update();
+    Charts.renderDonation();
+  },
+
+  /* ---- Return the merged list (DB + local manually-added) ---- */
+  all() {
+    if (!this._ready) return [];   // still loading — return empty, not stale localStorage
+    return this._merged || [];
+  },
+
+  save(list) {
+    // Only persist locally-created records back to localStorage
+    const local = list.filter(d => d._source !== 'db');
+    Store.set(this.KEY, local);
+    this._localRows = local;
+    this._merged = [...this._dbRows, ...local];
+    Stats.update();
+    Charts.renderDonation();
+  },
+
   render() {
     const q      = document.getElementById('don-search').value.toLowerCase();
     const filter = document.getElementById('don-filter').value;
-    let list = this.all().filter(d =>
-      (!q || `${d.name} ${d.email}`.toLowerCase().includes(q)) &&
+    const tbody  = document.getElementById('don-tbody');
+
+    if (!this._ready) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from database…</td></tr>`;
+      return;
+    }
+
+    const list = this.all().filter(d =>
+      (!q || `${d.name} ${d.email} ${d.notes}`.toLowerCase().includes(q)) &&
       (!filter || d.status === filter)
     );
-    const tbody = document.getElementById('don-tbody');
     if (!list.length) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No donations found.</td></tr>`; return;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No donations found.</td></tr>`; return;
     }
     tbody.innerHTML = list.map(d => `
       <tr>
@@ -464,14 +554,17 @@ const Donations = {
         <td>${esc(d.email)}</td>
         <td><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></td>
         <td>${d.date ? new Date(d.date).toLocaleDateString() : '—'}</td>
-        <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
+        <td><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(d.notes||'—')}</td>
         <td class="action-btns">
-          <button class="act-btn act-view"   onclick="Donations.view(${d.id})"><i class="fa-solid fa-eye"></i> View</button>
-          <button class="act-btn act-edit"   onclick="Donations.openForm(Donations.all().find(x=>x.id===${d.id}))"><i class="fa-solid fa-pen"></i></button>
-          <button class="act-btn act-delete" onclick="Donations.delete(${d.id})"><i class="fa-solid fa-trash"></i></button>
+          <button class="act-btn act-view" onclick="Donations.view('${d.id}')"><i class="fa-solid fa-eye"></i> View</button>
+          ${d._source !== 'db' ? `
+          <button class="act-btn act-edit"   onclick="Donations.openForm(Donations.all().find(x=>x.id=='${d.id}'))"><i class="fa-solid fa-pen"></i></button>
+          <button class="act-btn act-delete" onclick="Donations.delete('${d.id}')"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
       </tr>`).join('');
   },
+
   openForm(don = null) {
     const isEdit = !!don;
     Modal.open(isEdit ? 'Edit Donation' : 'Record Donation',
@@ -490,53 +583,69 @@ const Donations = {
        </div>
        <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional note…">${esc(don?.notes||'')}</textarea></div>`,
       `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
-       <button class="btn-primary" onclick="Donations.save_form(${don?.id||'null'})">
+       <button class="btn-primary" onclick="Donations.save_form('${don?.id||'null'}')">
          <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Save'}
        </button>`
     );
   },
+
   save_form(id) {
     const name   = document.getElementById('df-name').value.trim();
     const email  = document.getElementById('df-email').value.trim();
     const amount = document.getElementById('df-amount').value;
     if (!name || !amount) { Toast.show('Name and amount are required.','error'); return; }
-    const list = this.all();
+    const local = [...this._localRows];
     const data = {
       name, email, amount: parseFloat(amount),
       date:   document.getElementById('df-date').value,
       status: document.getElementById('df-status').value,
-      notes:  document.getElementById('df-notes').value.trim()
+      notes:  document.getElementById('df-notes').value.trim(),
+      _source: 'local'
     };
-    if (id) {
-      const i = list.findIndex(d => d.id === id);
-      if (i > -1) list[i] = { ...list[i], ...data };
+    if (id && id !== 'null') {
+      const i = local.findIndex(d => String(d.id) === String(id));
+      if (i > -1) local[i] = { ...local[i], ...data };
       Toast.show('Donation updated.','success');
     } else {
-      data.id = Store.nextId(list);
-      list.push(data);
+      data.id = 'local_' + Store.nextId(local);
+      local.push(data);
       Activity.add('fa-hand-holding-heart', `Donation of R${parseFloat(amount).toFixed(2)} from ${name}`);
       Notifs.add('fa-hand-holding-heart', `New donation: R${parseFloat(amount).toFixed(2)} from ${name}`);
       Toast.show('Donation recorded.','success');
     }
-    this.save(list); Modal.close(); this.render();
+    Store.set(this.KEY, local);
+    this._localRows = local;
+    this._merged = [...this._dbRows, ...local];
+    Modal.close();
+    this.render();
+    Stats.update();
+    Charts.renderDonation();
   },
+
   delete(id) {
     if (!confirm('Delete this donation record?')) return;
-    const list = this.all().filter(d => d.id !== id);
-    this.save(list); this.render();
+    const local = this._localRows.filter(d => String(d.id) !== String(id));
+    Store.set(this.KEY, local);
+    this._localRows = local;
+    this._merged = [...this._dbRows, ...local];
+    this.render();
+    Stats.update();
+    Charts.renderDonation();
     Toast.show('Donation deleted.','success');
   },
+
   view(id) {
-    const d = this.all().find(d => d.id === id);
+    const d = this.all().find(d => String(d.id) === String(id));
     if (!d) return;
     Modal.open('Donation Details',
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Donor</span><span class="value">${esc(d.name)}</span></div>
         <div class="detail-item"><span class="label">Email</span><span class="value">${esc(d.email||'—')}</span></div>
         <div class="detail-item"><span class="label">Amount</span><span class="value"><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleDateString() : '—'}</span></div>
-        <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></span></div>
-        <div class="detail-item detail-message"><span class="label">Notes</span><span class="value">${esc(d.notes||'—')}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleString() : '—'}</span></div>
+        <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? '🌐 Online (Supabase)' : '📝 Manually recorded'}</span></div>
+        <div class="detail-item detail-message"><span class="label">Message / Notes</span><span class="value" style="white-space:pre-wrap">${esc(d.notes||'—')}</span></div>
        </div>`, '');
   }
 };
@@ -1020,9 +1129,9 @@ document.addEventListener('DOMContentLoaded', () => {
   Notifs.updateDot();
   Notifs.render();
 
-  // Seed demo data if everything is empty
-  const hasAnyData = Store.get('hh_donations',[]).length ||
-                     Store.get('hh_volunteers',[]).length ||
+  // Seed demo data only if NO local non-donation data exists
+  // (Donations now come from DB so we skip seeding those)
+  const hasAnyData = Store.get('hh_volunteers',[]).length ||
                      Store.get('hh_messages',[]).length;
   if (!hasAnyData) seedDemo();
 });
@@ -1036,13 +1145,7 @@ function seedDemo() {
     return d.toISOString();
   };
 
-  Store.set('hh_donations', [
-    { id:1, name:'Alice Johnson',  email:'alice@email.com',  amount:250,  date:date(-5),  status:'Completed', notes:'Monthly gift' },
-    { id:2, name:'Bob Martinez',   email:'bob@email.com',    amount:100,  date:date(-12), status:'Completed', notes:'' },
-    { id:3, name:'Carol White',    email:'carol@email.com',  amount:500,  date:date(-2),  status:'Completed', notes:'Birthday fundraiser' },
-    { id:4, name:'David Lee',      email:'david@email.com',  amount:75,   date:date(-20), status:'Pending',   notes:'' },
-    { id:5, name:'Eva Brown',      email:'eva@email.com',    amount:1000, date:date(-1),  status:'Completed', notes:'Annual donation' }
-  ]);
+  // Note: donations are now fetched live from Supabase — no local seed needed
 
   Store.set('hh_volunteers', [
     { id:1, name:'Sara Ahmed',    email:'sara@email.com',   phone:'555-0101', skills:'Teaching, Cooking',    availability:'Weekends',  status:'Approved', date:date(-30) },
@@ -1085,5 +1188,15 @@ function seedDemo() {
   Activity.render();
   Notifs.updateDot();
 }
+
+/* ===== EXPOSE TO WINDOW (required for inline onclick in ES module context) ===== */
+window.Volunteers   = Volunteers;
+window.Donations    = Donations;
+window.Messages     = Messages;
+window.Events       = Events;
+window.Inventory    = Inventory;
+window.Sponsorships = Sponsorships;
+window.Reports      = Reports;
+window.Modal        = Modal;
 
 
