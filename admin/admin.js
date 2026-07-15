@@ -435,7 +435,7 @@ const Volunteers = {
     Toast.show(`Volunteer ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning');
     if (status === 'Approved' && v.email) {
       try {
-        await emailjs.send('service_l4nvkup', 'template_rtl80a6', {
+        await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templates.volunteerApproved, {
           to_email:    v.email,
           to_name:     v.name,
           activity:    v.activity || v.skills || 'General Volunteering',
@@ -1296,7 +1296,7 @@ const Sponsorships = {
     if (!s.email) { Toast.show('No email on file for this sponsor.', 'warning'); return; }
     if (s.paymentStatus === 'Overdue') {
       try {
-        await emailjs.send('service_l4nvkup', 'template_av7g059', {
+        await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templates.sponsorFailed, {
           to_email:      s.email,
           to_name:       s.sponsor,
           amount:        `R${parseFloat(s.amount).toFixed(2)}`,
@@ -1331,9 +1331,9 @@ const Sponsorships = {
         }
       } catch (_) { /* no balance record — assume sufficient */ }
       if (hasBalance) continue; // no due reminder, only send on failure
-      const templateId = 'template_av7g059';
+      const templateId = EMAILJS_CONFIG.templates.sponsorFailed;
       try {
-        await emailjs.send('service_l4nvkup', templateId, {
+        await emailjs.send(EMAILJS_CONFIG.serviceId, templateId, {
           to_email:    s.email,
           to_name:     s.sponsor,
           amount:      `R${parseFloat(s.amount).toFixed(2)}`,
