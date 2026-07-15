@@ -426,7 +426,6 @@ const Volunteers = {
     const v = this.all().find(v => String(v.id) === String(id));
     if (!v) return;
     if (v._source === 'db') {
-      // status is not stored in users table — only track locally
       Toast.show('Status tracking is local only for user-based volunteers.', 'info');
     }
     const list = this._localRows;
@@ -434,6 +433,21 @@ const Volunteers = {
     if (item) { item.status = status; this.save(list); this.render(); }
     Activity.add(status === 'Approved' ? 'fa-check' : 'fa-xmark', `Volunteer ${v.name} ${status.toLowerCase()}.`);
     Toast.show(`Volunteer ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning');
+    if (status === 'Approved' && v.email) {
+      try {
+        await emailjs.send('service_l4nvkup', 'template_rtl80a6', {
+          to_email:    v.email,
+          to_name:     v.name,
+          activity:    v.activity || v.skills || 'General Volunteering',
+          org_name:    'Hopeful Hearts Orphanage',
+          contact_email: 'hello@hopefulhearts.org'
+        });
+        Toast.show(`Approval email sent to ${v.email}.`, 'success');
+      } catch (err) {
+        console.error('EmailJS error:', err);
+        Toast.show('Could not send approval email.', 'warning');
+      }
+    }
   },
 
   async delete(id) {
@@ -1276,13 +1290,61 @@ const Sponsorships = {
     }
     this.save(list); Modal.close(); this.render();
   },
-  remind(id) {
+  async remind(id) {
     const s = this.all().find(s => s.id === id);
     if (!s) return;
-    if (s.email) {
-      window.location.href = `mailto:${s.email}?subject=Sponsorship%20Payment%20Reminder&body=Dear%20${encodeURIComponent(s.sponsor)}%2C%0A%0AThis%20is%20a%20friendly%20reminder%20that%20your%20sponsorship%20payment%20for%20${encodeURIComponent(s.child)}%20is%20due.%0A%0AThank%20you!`;
+    if (!s.email) { Toast.show('No email on file for this sponsor.', 'warning'); return; }
+    if (s.paymentStatus === 'Overdue') {
+      try {
+        await emailjs.send('service_l4nvkup', 'template_av7g059', {
+          to_email:      s.email,
+          to_name:       s.sponsor,
+          amount:        `R${parseFloat(s.amount).toFixed(2)}`,
+          due_date:      s.nextPayment ? new Date(s.nextPayment).toLocaleDateString() : 'N/A',
+          org_name:      'Hopeful Hearts Orphanage',
+          contact_email: 'hello@hopefulhearts.org'
+        });
+        Toast.show(`Payment failed email sent to ${s.sponsor}.`, 'success');
+        Activity.add('fa-envelope', `Payment failed email sent to ${s.sponsor}.`);
+      } catch (err) {
+        console.error('EmailJS remind error:', err);
+        Toast.show('Could not send email: ' + (err.text || err.message), 'error');
+      }
     } else {
-      Toast.show('No email on file for this sponsor.','warning');
+      window.location.href = `mailto:${s.email}?subject=Sponsorship%20Payment%20Reminder&body=Dear%20${encodeURIComponent(s.sponsor)}%2C%0A%0AThis%20is%20a%20friendly%20reminder%20that%20your%20sponsorship%20payment%20is%20due.%0A%0AThank%20you!`;
+    }
+  },
+  async checkDuePayments() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const s of this.all()) {
+      if (!s.email || !s.nextPayment) continue;
+      const due = new Date(s.nextPayment);
+      due.setHours(0, 0, 0, 0);
+      if (due.getTime() !== today.getTime()) continue;
+      // Check balance from Supabase
+      let hasBalance = true;
+      try {
+        if (s.user_id) {
+          const { data } = await DB.from('balances').select('balance').eq('user_id', s.user_id).single();
+          if (data) hasBalance = parseFloat(data.balance) >= parseFloat(s.amount);
+        }
+      } catch (_) { /* no balance record — assume sufficient */ }
+      if (hasBalance) continue; // no due reminder, only send on failure
+      const templateId = 'template_av7g059';
+      try {
+        await emailjs.send('service_l4nvkup', templateId, {
+          to_email:    s.email,
+          to_name:     s.sponsor,
+          amount:      `R${parseFloat(s.amount).toFixed(2)}`,
+          due_date:    new Date(s.nextPayment).toLocaleDateString(),
+          org_name:    'Hopeful Hearts Orphanage',
+          contact_email: 'hello@hopefulhearts.org'
+        });
+        Notifs.add('fa-envelope', `Payment ${hasBalance ? 'due' : 'failed'} email sent to ${s.sponsor}.`);
+      } catch (err) {
+        console.error('Sponsor email error:', err);
+      }
     }
   },
   delete(id) {
@@ -1403,6 +1465,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Events.init();
   Inventory.init();
   Sponsorships.init();
+  Sponsorships.checkDuePayments();
 
   // Dashboard stats + charts + activity
   Stats.update();
@@ -1528,5 +1591,3 @@ window.Inventory    = Inventory;
 window.Sponsorships = Sponsorships;
 window.Reports      = Reports;
 window.Modal        = Modal;
-
-
