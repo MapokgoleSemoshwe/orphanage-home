@@ -16,6 +16,12 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <!-- jsPDF for PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="emailjs-config.js"></script>
+  <script>
+    emailjs.init(EMAILJS_CONFIG.publicKey);
+  </script>
   <!-- Dashboard CSS -->
   <link rel="stylesheet" href="admin.css" />
 </head>
@@ -119,7 +125,7 @@
             <div class="stat-icon orange"><i class="fa-solid fa-hand-holding-heart"></i></div>
             <div class="stat-info">
               <span class="stat-label">Total Donations</span>
-              <span class="stat-value" id="stat-donations">$0</span>
+              <span class="stat-value" id="stat-donations">R0</span>
             </div>
           </div>
           <div class="stat-card">
@@ -213,7 +219,7 @@
             <thead>
               <tr>
                 <th>Full Name</th><th>Email</th><th>Phone</th>
-                <th>Skills</th><th>Availability</th><th>Status</th><th>Actions</th>
+                <th>Activity</th><th>Availability</th><th>Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="vol-tbody"></tbody>
