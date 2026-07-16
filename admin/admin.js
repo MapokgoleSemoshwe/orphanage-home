@@ -1,5 +1,5 @@
-/* ============================================================
-   Hopeful Hearts — Admin Dashboard JS
+﻿/* ============================================================
+   Hopeful Hearts N/A Admin Dashboard JS
    ============================================================ */
 
 'use strict';
@@ -221,7 +221,7 @@ const Stats = {
     // Use the live merged list from Donations (DB + local)
     const donations   = Donations.all ? Donations.all() : Store.get('hh_donations', []);
     const volunteers  = Store.get('hh_volunteers', []);
-    const sponsors    = Store.get('hh_sponsorships', []);
+    const sponsors    = Sponsorships.count ? Sponsorships.count() : 0;
     const events      = Store.get('hh_events', []);
     const inventory   = Store.get('hh_inventory', []);
 
@@ -232,7 +232,7 @@ const Stats = {
 
     document.getElementById('stat-donations').textContent  = 'R ' + totalDon.toLocaleString('en-ZA', {minimumFractionDigits:2, maximumFractionDigits:2});
     document.getElementById('stat-volunteers').textContent = volunteers.length;
-    document.getElementById('stat-sponsors').textContent   = sponsors.length;
+    document.getElementById('stat-sponsors').textContent   = sponsors;
     document.getElementById('stat-events').textContent     = upcoming;
     document.getElementById('stat-alerts').textContent     = alerts;
 
@@ -355,10 +355,10 @@ const Volunteers = {
         user_id:      v.id,
         name:         v.display_name || v.email,
         email:        v.email || '',
-        phone:        '—',
-        activity:     v.volunteer_role || '—',
-        skills:       v.volunteer_role || '—',
-        availability: '—',
+        phone:        'N/A',
+        activity:     v.volunteer_role || 'N/A',
+        skills:       v.volunteer_role || 'N/A',
+        availability: 'N/A',
         status:       'Pending',
         date:         v.created_at,
         _source:      'db'
@@ -399,7 +399,7 @@ const Volunteers = {
     );
     const tbody = document.getElementById('vol-tbody');
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading volunteers…</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading volunteersâ€¦</td></tr>`;
       return;
     }
     if (!list.length) {
@@ -409,9 +409,9 @@ const Volunteers = {
       <tr>
         <td>${esc(v.name)}</td>
         <td>${esc(v.email)}</td>
-        <td>${esc(v.phone || '—')}</td>
-        <td>${esc(v.activity || v.skills || '—')}</td>
-        <td>${esc(v.availability || '—')}</td>
+        <td>${esc(v.phone || 'N/A')}</td>
+        <td>${esc(v.activity || v.skills || 'N/A')}</td>
+        <td>${esc(v.availability || 'N/A')}</td>
         <td><span class="status-badge status-${v.status.toLowerCase()}">${v.status}</span></td>
         <td class="action-btns">
           <button class="act-btn act-view"    onclick="Volunteers.view('${v.id}')"><i class="fa-solid fa-eye"></i> View</button>
@@ -528,11 +528,11 @@ const Volunteers = {
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Name</span><span class="value">${esc(v.name)}</span></div>
         <div class="detail-item"><span class="label">Email</span><span class="value">${esc(v.email)}</span></div>
-        <div class="detail-item"><span class="label">Phone</span><span class="value">${esc(v.phone||'—')}</span></div>
-        <div class="detail-item"><span class="label">Activity</span><span class="value">${esc(v.activity||v.skills||'—')}</span></div>
-        <div class="detail-item"><span class="label">Availability</span><span class="value">${esc(v.availability||'—')}</span></div>
+        <div class="detail-item"><span class="label">Phone</span><span class="value">${esc(v.phone||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Activity</span><span class="value">${esc(v.activity||v.skills||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Availability</span><span class="value">${esc(v.availability||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${v.status.toLowerCase()}">${v.status}</span></span></div>
-        <div class="detail-item"><span class="label">Source</span><span class="value">${v._source === 'db' ? '🌐 Online (Supabase)' : '📝 Manually added'}</span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${v._source === 'db' ? 'ðŸŒ Online (Supabase)' : 'ðŸ“ Manually added'}</span></div>
        </div>`,
       `<button class="btn-primary" onclick="Volunteers.openForm(Volunteers.all().find(x=>String(x.id)==='${id}'))"><i class="fa-solid fa-pen"></i> Edit</button>`
     );
@@ -583,7 +583,7 @@ const Donations = {
         Toast.show('No donations found in database yet.', 'info');
       }
 
-      // Normalise rows — handle both old rows (no donor_name) and new rows (with donor_name)
+      // Normalise rows N/A handle both old rows (no donor_name) and new rows (with donor_name)
       this._dbRows = (data || []).map(d => ({
         id:      d.id,
         user_id: d.user_id,
@@ -598,7 +598,7 @@ const Donations = {
 
     } catch (err) {
       console.error('Donations DB error:', err);
-      Toast.show('Could not load donations — check RLS policies in Supabase: ' + err.message, 'error');
+      Toast.show('Could not load donations N/A check RLS policies in Supabase: ' + err.message, 'error');
     } finally {
       Loading.hide();
     }
@@ -612,7 +612,7 @@ const Donations = {
 
   /* ---- Return the merged list (DB + local manually-added) ---- */
   all() {
-    if (!this._ready) return [];   // still loading — return empty, not stale localStorage
+    if (!this._ready) return [];   // still loading N/A return empty, not stale localStorage
     return this._merged || [];
   },
 
@@ -632,7 +632,7 @@ const Donations = {
     const tbody  = document.getElementById('don-tbody');
 
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from database…</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from databaseâ€¦</td></tr>`;
       return;
     }
 
@@ -648,9 +648,9 @@ const Donations = {
         <td>${esc(d.name)}</td>
         <td>${esc(d.email)}</td>
         <td><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></td>
-        <td>${d.date ? new Date(d.date).toLocaleDateString() : '—'}</td>
+        <td>${d.date ? new Date(d.date).toLocaleDateString() : 'N/A'}</td>
         <td><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(d.notes||'—')}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(d.notes||'N/A')}</td>
         <td class="action-btns">
           <button class="act-btn act-view" onclick="Donations.view('${d.id}')"><i class="fa-solid fa-eye"></i> View</button>
           ${d._source !== 'db' ? `
@@ -676,7 +676,7 @@ const Donations = {
            ${['Completed','Pending','Failed'].map(s=>`<option ${(don?.status||'Completed')===s?'selected':''}>${s}</option>`).join('')}
          </select>
        </div>
-       <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional note…">${esc(don?.notes||'')}</textarea></div>`,
+       <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional noteâ€¦">${esc(don?.notes||'')}</textarea></div>`,
       `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
        <button class="btn-primary" onclick="Donations.save_form('${don?.id||'null'}')">
          <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Save'}
@@ -735,12 +735,12 @@ const Donations = {
     Modal.open('Donation Details',
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Donor</span><span class="value">${esc(d.name)}</span></div>
-        <div class="detail-item"><span class="label">Email</span><span class="value">${esc(d.email||'—')}</span></div>
+        <div class="detail-item"><span class="label">Email</span><span class="value">${esc(d.email||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Amount</span><span class="value"><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleString() : '—'}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleString() : 'N/A'}</span></div>
         <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></span></div>
-        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? '🌐 Online (Supabase)' : '📝 Manually recorded'}</span></div>
-        <div class="detail-item detail-message"><span class="label">Message / Notes</span><span class="value" style="white-space:pre-wrap">${esc(d.notes||'—')}</span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? 'ðŸŒ Online (Supabase)' : 'ðŸ“ Manually recorded'}</span></div>
+        <div class="detail-item detail-message"><span class="label">Message / Notes</span><span class="value" style="white-space:pre-wrap">${esc(d.notes||'N/A')}</span></div>
        </div>`, '');
   }
 };
@@ -770,9 +770,9 @@ const Messages = {
       <tr style="${m.status==='unread'?'font-weight:600;':''}" >
         <td>${esc(m.name)}</td>
         <td>${esc(m.email)}</td>
-        <td>${esc(m.subject||'—')}</td>
+        <td>${esc(m.subject||'N/A')}</td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.message||'')}</td>
-        <td>${m.date ? new Date(m.date).toLocaleDateString() : '—'}</td>
+        <td>${m.date ? new Date(m.date).toLocaleDateString() : 'N/A'}</td>
         <td class="action-btns">
           <button class="act-btn act-view"  onclick="Messages.view(${m.id})"><i class="fa-solid fa-eye"></i> View</button>
           <button class="act-btn act-read"  onclick="Messages.markRead(${m.id})"><i class="fa-solid fa-check-double"></i></button>
@@ -799,8 +799,8 @@ const Messages = {
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">From</span><span class="value">${esc(m.name)}</span></div>
         <div class="detail-item"><span class="label">Email</span><span class="value">${esc(m.email)}</span></div>
-        <div class="detail-item"><span class="label">Subject</span><span class="value">${esc(m.subject||'—')}</span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${m.date ? new Date(m.date).toLocaleDateString() : '—'}</span></div>
+        <div class="detail-item"><span class="label">Subject</span><span class="value">${esc(m.subject||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${m.date ? new Date(m.date).toLocaleDateString() : 'N/A'}</span></div>
         <div class="detail-item detail-message"><span class="label">Message</span>
           <span class="value" style="white-space:pre-wrap">${esc(m.message||'')}</span>
         </div>
@@ -887,7 +887,7 @@ const Events = {
     const tbody = document.getElementById('evt-tbody');
     
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading events from database…</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading events from databaseâ€¦</td></tr>`;
       return;
     }
     
@@ -899,9 +899,9 @@ const Events = {
     tbody.innerHTML = list.map(e => `
       <tr>
         <td><strong>${esc(e.name)}</strong></td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(e.description||'—')}</td>
-        <td>${e.date ? new Date(e.date).toLocaleDateString() : '—'}</td>
-        <td>${esc(e.location||'—')}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(e.description||'N/A')}</td>
+        <td>${e.date ? new Date(e.date).toLocaleDateString() : 'N/A'}</td>
+        <td>${esc(e.location||'N/A')}</td>
         <td>${e.maxAttendees||100}</td>
         <td>${e.registered||0}</td>
         <td class="action-btns">
@@ -1059,10 +1059,10 @@ const Events = {
     Modal.open('Event Details & RSVPs',
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Event Name</span><span class="value"><strong>${esc(e.name)}</strong></span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${e.date ? new Date(e.date).toLocaleDateString() : '—'}</span></div>
-        <div class="detail-item"><span class="label">Location</span><span class="value">${esc(e.location||'—')}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${e.date ? new Date(e.date).toLocaleDateString() : 'N/A'}</span></div>
+        <div class="detail-item"><span class="label">Location</span><span class="value">${esc(e.location||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Spots Filled</span><span class="value">${e.registered||0} / ${(e.maxAttendees || e.max_attendees || 100)}</span></div>
-        <div class="detail-item detail-message"><span class="label">Description</span><span class="value">${esc(e.description||'—')}</span></div>
+        <div class="detail-item detail-message"><span class="label">Description</span><span class="value">${esc(e.description||'N/A')}</span></div>
        </div>
        <div style="margin-top:20px;">
          <h4 style="font-size:0.95rem;border-bottom:1px solid var(--border-color, #e2e8f0);padding-bottom:8px;margin-bottom:10px;"><i class="fa-solid fa-users"></i> Registered RSVPs</h4>
@@ -1156,7 +1156,7 @@ const Inventory = {
              ${['Food','Education','Medical','Bedding','Clothing','Hygiene','Other'].map(c=>`<option ${(item?.category||'')===c?'selected':''}>${c}</option>`).join('')}
            </select>
          </div>
-         <div class="form-group"><label>Unit</label><input id="if-unit" value="${esc(item?.unit||'pcs')}" placeholder="pcs, kg, boxes…" /></div>
+         <div class="form-group"><label>Unit</label><input id="if-unit" value="${esc(item?.unit||'pcs')}" placeholder="pcs, kg, boxesâ€¦" /></div>
        </div>
        <div class="form-row">
          <div class="form-group"><label>Quantity</label><input id="if-qty" type="number" min="0" value="${item?.quantity??''}" placeholder="0" /></div>
@@ -1212,147 +1212,113 @@ const Inventory = {
   }
 };
 
-/* ===== SPONSORSHIPS ===== */
+/* ===== SPONSORSHIPS (live subscribers from DB) ===== */
 const Sponsorships = {
-  KEY: 'hh_sponsorships',
+  _rows: [],
+  _ready: false,
+
   init() {
     this.render();
-    document.getElementById('add-sponsor-btn').addEventListener('click', () => this.openForm());
+    this.loadFromDB();
+    document.getElementById('refresh-sponsors-btn').addEventListener('click', () => this.loadFromDB());
+    document.getElementById('spon-search').addEventListener('input', () => this.render());
   },
-  all()  { return Store.get(this.KEY, []); },
-  save(list) { Store.set(this.KEY, list); Stats.update(); },
+
+  async loadFromDB() {
+    try {
+      Loading.show();
+      const { data, error } = await DB
+        .from('users')
+        .select('id, display_name, email, subscription_amount, subscription_day, last_subscription_date')
+        .eq('is_subscriber', 'Y')
+        .order('display_name', { ascending: true });
+      if (error) throw error;
+      this._rows = data || [];
+    } catch (err) {
+      console.error('Sponsorships DB error:', err);
+      Toast.show('Could not load subscribers: ' + err.message, 'error');
+    } finally {
+      Loading.hide();
+    }
+    this._ready = true;
+    this.render();
+    Stats.update();
+  },
+
+  count() { return this._rows.length; },
+
   render() {
-    const list = this.all();
     const tbody = document.getElementById('spon-tbody');
-    if (!list.length) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No sponsorships found.</td></tr>`; return;
+    if (!this._ready) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading subscribersâ€¦</td></tr>`;
+      return;
     }
-    tbody.innerHTML = list.map(s => `
-      <tr>
-        <td>${esc(s.child)}</td>
-        <td>${esc(s.sponsor)}</td>
-        <td>${esc(s.email||'—')}</td>
-        <td><strong>R${parseFloat(s.amount||0).toFixed(2)}/mo</strong></td>
-        <td><span class="status-badge status-${(s.paymentStatus||'pending').toLowerCase()}">${s.paymentStatus||'Pending'}</span></td>
-        <td>${s.nextPayment ? new Date(s.nextPayment).toLocaleDateString() : '—'}</td>
-        <td class="action-btns">
-          <button class="act-btn act-email"  onclick="Sponsorships.remind(${s.id})"><i class="fa-solid fa-envelope"></i> Remind</button>
-          <button class="act-btn act-edit"   onclick="Sponsorships.openForm(Sponsorships.all().find(x=>x.id===${s.id}))"><i class="fa-solid fa-pen"></i></button>
-          <button class="act-btn act-delete" onclick="Sponsorships.delete(${s.id})"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>`).join('');
-  },
-  openForm(sp = null) {
-    const isEdit = !!sp;
-    Modal.open(isEdit ? 'Edit Sponsorship' : 'Add Sponsorship',
-      `<div class="form-row">
-         <div class="form-group"><label>Child Name</label><input id="sf-child" value="${esc(sp?.child||'')}" placeholder="Child's name" /></div>
-         <div class="form-group"><label>Sponsor Name</label><input id="sf-sponsor" value="${esc(sp?.sponsor||'')}" placeholder="Sponsor's name" /></div>
-       </div>
-       <div class="form-row">
-         <div class="form-group"><label>Sponsor Email</label><input id="sf-email" type="email" value="${esc(sp?.email||'')}" placeholder="sponsor@email.com" /></div>
-         <div class="form-group"><label>Monthly Amount (R)</label><input id="sf-amount" type="number" min="0" step="0.01" value="${sp?.amount||''}" placeholder="50.00" /></div>
-       </div>
-       <div class="form-row">
-         <div class="form-group"><label>Payment Status</label>
-           <select id="sf-pay">
-             ${['Paid','Pending','Overdue'].map(s=>`<option ${(sp?.paymentStatus||'Pending')===s?'selected':''}>${s}</option>`).join('')}
-           </select>
-         </div>
-         <div class="form-group"><label>Next Payment Date</label><input id="sf-next" type="date" value="${sp?.nextPayment ? sp.nextPayment.slice(0,10) : ''}" /></div>
-       </div>`,
-      `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
-       <button class="btn-primary" onclick="Sponsorships.save_form(${sp?.id||'null'})">
-         <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Add'}
-       </button>`
+    const q = (document.getElementById('spon-search')?.value || '').toLowerCase();
+    const list = this._rows.filter(s =>
+      !q || `${s.display_name} ${s.email}`.toLowerCase().includes(q)
     );
-  },
-  save_form(id) {
-    const child   = document.getElementById('sf-child').value.trim();
-    const sponsor = document.getElementById('sf-sponsor').value.trim();
-    if (!child || !sponsor) { Toast.show('Child and sponsor names required.','error'); return; }
-    const list = this.all();
-    const data = {
-      child, sponsor,
-      email:         document.getElementById('sf-email').value.trim(),
-      amount:        parseFloat(document.getElementById('sf-amount').value) || 0,
-      paymentStatus: document.getElementById('sf-pay').value,
-      nextPayment:   document.getElementById('sf-next').value
-    };
-    if (id) {
-      const i = list.findIndex(s => s.id === id);
-      if (i > -1) list[i] = { ...list[i], ...data };
-      Toast.show('Sponsorship updated.','success');
-    } else {
-      data.id = Store.nextId(list); list.push(data);
-      Activity.add('fa-child-reaching', `New sponsorship: ${sponsor} → ${child}`);
-      Toast.show('Sponsorship added.','success');
+    if (!list.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No subscribed sponsors found.</td></tr>`; return;
     }
-    this.save(list); Modal.close(); this.render();
+    tbody.innerHTML = list.map(s => {
+      const amount = parseFloat(s.subscription_amount || 0);
+      const lastDate = s.last_subscription_date
+        ? new Date(s.last_subscription_date).toLocaleDateString()
+        : 'N/A';
+      const billingDay = s.subscription_day || 1;
+      return `<tr>
+        <td><strong>${esc(s.display_name || 'N/A')}</strong></td>
+        <td>${esc(s.email)}</td>
+        <td><strong>R${amount.toFixed(2)}/mo</strong></td>
+        <td>Day ${billingDay}</td>
+        <td>${lastDate}</td>
+        <td><span class="status-badge status-active">Active</span></td>
+        <td class="action-btns">
+          <button class="act-btn act-view" onclick="Sponsorships.view('${s.id}')"><i class="fa-solid fa-eye"></i> View</button>
+          <button class="act-btn act-email" onclick="Sponsorships.remind('${s.id}')"><i class="fa-solid fa-envelope"></i> Email</button>
+        </td>
+      </tr>`;
+    }).join('');
   },
-  async remind(id) {
-    const s = this.all().find(s => s.id === id);
+
+  view(id) {
+    const s = this._rows.find(x => x.id === id);
     if (!s) return;
-    if (!s.email) { Toast.show('No email on file for this sponsor.', 'warning'); return; }
-    if (s.paymentStatus === 'Overdue') {
-      try {
-        await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templates.sponsorFailed, {
-          to_email:      s.email,
-          to_name:       s.sponsor,
-          amount:        `R${parseFloat(s.amount).toFixed(2)}`,
-          due_date:      s.nextPayment ? new Date(s.nextPayment).toLocaleDateString() : 'N/A',
-          org_name:      'Hopeful Hearts Orphanage',
-          contact_email: 'hello@hopefulhearts.org'
-        });
-        Toast.show(`Payment failed email sent to ${s.sponsor}.`, 'success');
-        Activity.add('fa-envelope', `Payment failed email sent to ${s.sponsor}.`);
-      } catch (err) {
-        console.error('EmailJS remind error:', err);
-        Toast.show('Could not send email: ' + (err.text || err.message), 'error');
-      }
-    } else {
-      window.location.href = `mailto:${s.email}?subject=Sponsorship%20Payment%20Reminder&body=Dear%20${encodeURIComponent(s.sponsor)}%2C%0A%0AThis%20is%20a%20friendly%20reminder%20that%20your%20sponsorship%20payment%20is%20due.%0A%0AThank%20you!`;
+    const amount = parseFloat(s.subscription_amount || 0);
+    Modal.open('Subscriber Details',
+      `<div class="detail-grid">
+        <div class="detail-item"><span class="label">Name</span><span class="value">${esc(s.display_name || 'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Email</span><span class="value">${esc(s.email)}</span></div>
+        <div class="detail-item"><span class="label">Monthly Amount</span><span class="value"><strong>R${amount.toFixed(2)}</strong></span></div>
+        <div class="detail-item"><span class="label">Billing Day</span><span class="value">Day ${s.subscription_day || 1} of each month</span></div>
+        <div class="detail-item"><span class="label">Last Payment</span><span class="value">${s.last_subscription_date ? new Date(s.last_subscription_date).toLocaleString() : 'Not yet processed'}</span></div>
+        <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-active">Active Subscriber</span></span></div>
+       </div>`, '');
+  },
+
+  async remind(id) {
+    const s = this._rows.find(x => x.id === id);
+    if (!s) return;
+    try {
+      await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templates.sponsorFailed, {
+        to_email:      s.email,
+        to_name:       s.display_name || 'Sponsor',
+        amount:        `R${parseFloat(s.subscription_amount || 0).toFixed(2)}`,
+        due_date:      s.subscription_day ? `Day ${s.subscription_day} of each month` : 'N/A',
+        org_name:      'Hopeful Hearts Orphanage',
+        contact_email: 'hello@hopefulhearts.org'
+      });
+      Toast.show(`Email sent to ${s.display_name || s.email}.`, 'success');
+      Activity.add('fa-envelope', `Subscription email sent to ${s.display_name || s.email}.`);
+    } catch (err) {
+      console.error('EmailJS remind error:', err);
+      Toast.show('Could not send email: ' + (err.text || err.message), 'error');
     }
   },
-  async checkDuePayments() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    for (const s of this.all()) {
-      if (!s.email || !s.nextPayment) continue;
-      const due = new Date(s.nextPayment);
-      due.setHours(0, 0, 0, 0);
-      if (due.getTime() !== today.getTime()) continue;
-      // Check balance from Supabase
-      let hasBalance = true;
-      try {
-        if (s.user_id) {
-          const { data } = await DB.from('balances').select('balance').eq('user_id', s.user_id).single();
-          if (data) hasBalance = parseFloat(data.balance) >= parseFloat(s.amount);
-        }
-      } catch (_) { /* no balance record — assume sufficient */ }
-      if (hasBalance) continue; // no due reminder, only send on failure
-      const templateId = EMAILJS_CONFIG.templates.sponsorFailed;
-      try {
-        await emailjs.send(EMAILJS_CONFIG.serviceId, templateId, {
-          to_email:    s.email,
-          to_name:     s.sponsor,
-          amount:      `R${parseFloat(s.amount).toFixed(2)}`,
-          due_date:    new Date(s.nextPayment).toLocaleDateString(),
-          org_name:    'Hopeful Hearts Orphanage',
-          contact_email: 'hello@hopefulhearts.org'
-        });
-        Notifs.add('fa-envelope', `Payment ${hasBalance ? 'due' : 'failed'} email sent to ${s.sponsor}.`);
-      } catch (err) {
-        console.error('Sponsor email error:', err);
-      }
-    }
-  },
-  delete(id) {
-    if (!confirm('Delete this sponsorship?')) return;
-    const list = this.all().filter(s => s.id !== id);
-    this.save(list); this.render();
-    Toast.show('Sponsorship deleted.','success');
-  }
+
+  // kept for backward compat (Stats, seedDemo)
+  all() { return this._rows; },
+  checkDuePayments() {}
 };
 
 /* ===== REPORTS / PDF EXPORT ===== */
@@ -1538,7 +1504,7 @@ function seedDemo() {
     return d.toISOString();
   };
 
-  // Note: donations are now fetched live from Supabase — no local seed needed
+  // Note: donations are now fetched live from Supabase N/A no local seed needed
 
   Store.set('hh_volunteers', [
     { id:1, name:'Sara Ahmed',    email:'sara@email.com',   phone:'555-0101', skills:'Teaching, Cooking',    availability:'Weekends',  status:'Approved', date:date(-30) },
@@ -1559,12 +1525,6 @@ function seedDemo() {
     { id:3, name:'Fundraising Gala',      description:'Evening gala for major donors.',            date:date(35).slice(0,10), location:'Grand Hotel',  maxAttendees:200, registered:87 }
   ]);
 
-  Store.set('hh_sponsorships', [
-    { id:1, child:'Michael Olu',   sponsor:'John & Mary Doe',  email:'johndoe@email.com',    amount:50,  paymentStatus:'Paid',    nextPayment:date(25).slice(0,10) },
-    { id:2, child:'Aisha Bello',   sponsor:'Green Corp',       email:'green@corp.com',        amount:100, paymentStatus:'Pending', nextPayment:date(5).slice(0,10)  },
-    { id:3, child:'Luis Herrera',  sponsor:'Dr. Amara Diallo',  email:'amara@email.com',      amount:75,  paymentStatus:'Overdue', nextPayment:date(-3).slice(0,10) }
-  ]);
-
   // Activity log
   Activity.add('fa-seedling','Dashboard initialized with demo data.');
   Notifs.add('fa-bell','Welcome to Hopeful Hearts Admin Dashboard!');
@@ -1577,7 +1537,6 @@ function seedDemo() {
   Messages.render();
   Events.render();
   Inventory.render();
-  Sponsorships.render();
   Activity.render();
   Notifs.updateDot();
 }

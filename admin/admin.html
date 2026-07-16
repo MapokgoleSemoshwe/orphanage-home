@@ -325,15 +325,18 @@
       <!-- ==================== SPONSORSHIPS ==================== -->
       <section class="section" id="section-sponsorships">
         <div class="section-header">
-          <h2>Sponsorship Management</h2>
-          <button class="btn-primary" id="add-sponsor-btn"><i class="fa-solid fa-plus"></i> Add Sponsorship</button>
+          <h2>Subscribed Sponsors</h2>
+          <button class="btn-primary" id="refresh-sponsors-btn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+        </div>
+        <div class="table-toolbar">
+          <input type="text" class="table-search" id="spon-search" placeholder="Search sponsors…" />
         </div>
         <div class="table-wrap">
           <table class="data-table" id="spon-table">
             <thead>
               <tr>
-                <th>Child Name</th><th>Sponsor Name</th><th>Email</th>
-                <th>Monthly Amount</th><th>Payment Status</th><th>Next Payment</th><th>Actions</th>
+                <th>Name</th><th>Email</th><th>Monthly Amount</th>
+                <th>Billing Day</th><th>Last Payment</th><th>Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="spon-tbody"></tbody>
