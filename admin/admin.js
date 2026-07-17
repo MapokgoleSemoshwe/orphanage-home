@@ -27,7 +27,7 @@ async function sendEmail(templateType, templateParams) {
   const result = await emailjs.send(cfg.serviceId, templateId, templateParams);
   if (result.status !== 200) throw new Error(result.text);
 }
-}
+
 
 
 const _supabaseUrl  = 'https://irzqdsxdiifosqzqdypj.supabase.co';
