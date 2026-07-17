@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Hopeful Hearts N/A Admin Dashboard JS
    ============================================================ */
 
@@ -412,7 +412,7 @@ const Volunteers = {
     );
     const tbody = document.getElementById('vol-tbody');
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading volunteersâ€¦</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading volunteersA¢â,¬A▌</td></tr>`;
       return;
     }
     if (!list.length) {
@@ -438,14 +438,10 @@ const Volunteers = {
   async setStatus(id, status) {
     const v = this.all().find(v => String(v.id) === String(id));
     if (!v) return;
-    if (v._source === 'db') {
-      Toast.show('Status tracking is local only for user-based volunteers.', 'info');
-    }
     const list = this._localRows;
     const item = list.find(x => String(x.id) === String(id));
     if (item) { item.status = status; this.save(list); this.render(); }
     Activity.add(status === 'Approved' ? 'fa-check' : 'fa-xmark', `Volunteer ${v.name} ${status.toLowerCase()}.`);
-    Toast.show(`Volunteer ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning');
     if (status === 'Approved' && v.email) {
       try {
         await sendEmail('volunteerApproved', {
@@ -455,15 +451,17 @@ const Volunteers = {
           org_name:      'Hopeful Hearts Orphanage',
           contact_email: 'hello@hopefulhearts.org'
         });
-        Toast.show(`Approval email sent to ${v.email}.`, 'success');
+        Toast.show(`Volunteer approved - confirmation email sent to ${v.email}.`, 'success');
       } catch (err) {
         console.error('EmailJS error:', err);
-        Toast.show('Could not send approval email.', 'warning');
+        Toast.show('Volunteer approved. Could not send email: ' + (err.message || err), 'warning');
       }
+    } else {
+      Toast.show(`Volunteer ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning');
     }
   },
 
-  async delete(id) {
+    async delete(id) {
     if (!confirm('Delete this volunteer?')) return;
     const v = this.all().find(v => String(v.id) === String(id));
     if (v && v._source === 'db') {
@@ -545,7 +543,7 @@ const Volunteers = {
         <div class="detail-item"><span class="label">Activity</span><span class="value">${esc(v.activity||v.skills||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Availability</span><span class="value">${esc(v.availability||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${v.status.toLowerCase()}">${v.status}</span></span></div>
-        <div class="detail-item"><span class="label">Source</span><span class="value">${v._source === 'db' ? 'ðŸŒ Online (Supabase)' : 'ðŸ“ Manually added'}</span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${v._source === 'db' ? 'Online (Supabase)' : 'Manually added'}</span></div>
        </div>`,
       `<button class="btn-primary" onclick="Volunteers.openForm(Volunteers.all().find(x=>String(x.id)==='${id}'))"><i class="fa-solid fa-pen"></i> Edit</button>`
     );
@@ -645,7 +643,7 @@ const Donations = {
     const tbody  = document.getElementById('don-tbody');
 
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from databaseâ€¦</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from databaseA¢â,¬A▌</td></tr>`;
       return;
     }
 
@@ -689,7 +687,7 @@ const Donations = {
            ${['Completed','Pending','Failed'].map(s=>`<option ${(don?.status||'Completed')===s?'selected':''}>${s}</option>`).join('')}
          </select>
        </div>
-       <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional noteâ€¦">${esc(don?.notes||'')}</textarea></div>`,
+       <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional noteA¢â,¬A▌">${esc(don?.notes||'')}</textarea></div>`,
       `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
        <button class="btn-primary" onclick="Donations.save_form('${don?.id||'null'}')">
          <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Save'}
@@ -752,7 +750,7 @@ const Donations = {
         <div class="detail-item"><span class="label">Amount</span><span class="value"><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></span></div>
         <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleString() : 'N/A'}</span></div>
         <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></span></div>
-        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? 'ðŸŒ Online (Supabase)' : 'ðŸ“ Manually recorded'}</span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? 'Online (Supabase)' : 'Manually recorded'}</span></div>
         <div class="detail-item detail-message"><span class="label">Message / Notes</span><span class="value" style="white-space:pre-wrap">${esc(d.notes||'N/A')}</span></div>
        </div>`, '');
   }
@@ -913,7 +911,7 @@ const Events = {
     const tbody = document.getElementById('evt-tbody');
     
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading events from databaseâ€¦</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading events from databaseA¢â,¬A▌</td></tr>`;
       return;
     }
     
@@ -1294,7 +1292,7 @@ const Inventory = {
              ${['Food','Education','Medical','Bedding','Clothing','Hygiene','Other'].map(c=>`<option ${(item?.category||'')===c?'selected':''}>${c}</option>`).join('')}
            </select>
          </div>
-         <div class="form-group"><label>Unit</label><input id="if-unit" value="${esc(item?.unit||'pcs')}" placeholder="pcs, kg, boxesâ€¦" /></div>
+         <div class="form-group"><label>Unit</label><input id="if-unit" value="${esc(item?.unit||'pcs')}" placeholder="pcs, kg, boxesA¢â,¬A▌" /></div>
        </div>
        <div class="form-row">
          <div class="form-group"><label>Quantity</label><input id="if-qty" type="number" min="0" value="${item?.quantity??''}" placeholder="0" /></div>
@@ -1388,7 +1386,7 @@ const Sponsorships = {
   render() {
     const tbody = document.getElementById('spon-tbody');
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading subscribersâ€¦</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading subscribersA¢â,¬A▌</td></tr>`;
       return;
     }
     const q = (document.getElementById('spon-search')?.value || '').toLowerCase();
@@ -1688,3 +1686,4 @@ window.Inventory    = Inventory;
 window.Sponsorships = Sponsorships;
 window.Reports      = Reports;
 window.Modal        = Modal;
+
