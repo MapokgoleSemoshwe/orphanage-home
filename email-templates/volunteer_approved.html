@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Volunteer Application Approved</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#f97316;padding:32px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">Hopeful Hearts Orphanage 🧡</h1>
+              <p style="margin:8px 0 0;color:#fff7ed;font-size:14px;">Making a difference, one heart at a time</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+              <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;">You're Approved as a Volunteer! 🎉</h2>
+              <p style="margin:0 0 16px;color:#475569;font-size:15px;line-height:1.6;">
+                Dear <strong>{{to_name}}</strong>,
+              </p>
+              <p style="margin:0 0 16px;color:#475569;font-size:15px;line-height:1.6;">
+                We are thrilled to let you know that your volunteer application to <strong>{{org_name}}</strong> has been <strong style="color:#16a34a;">approved</strong>!
+              </p>
+              <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
+                You have been registered for: <strong>{{activity}}</strong>
+              </p>
+
+              <!-- Highlight box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-left:4px solid #16a34a;border-radius:6px;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0;color:#15803d;font-size:14px;line-height:1.6;">
+                      ✅ Our team will be in touch shortly with your schedule, orientation details, and everything you need to get started.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 16px;color:#475569;font-size:15px;line-height:1.6;">
+                If you have any questions, feel free to reach out at
+                <a href="mailto:{{contact_email}}" style="color:#f97316;text-decoration:none;">{{contact_email}}</a>.
+              </p>
+              <p style="margin:0;color:#475569;font-size:15px;line-height:1.6;">
+                Thank you for choosing to give your time and heart to the children of Hopeful Hearts. Together, we make a real difference. 💛
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;padding:24px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;color:#94a3b8;font-size:12px;">© 2026 {{org_name}} · 143 Hope Road, Cape Town, South Africa</p>
+              <p style="margin:6px 0 0;color:#94a3b8;font-size:12px;">
+                <a href="mailto:{{contact_email}}" style="color:#f97316;text-decoration:none;">{{contact_email}}</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

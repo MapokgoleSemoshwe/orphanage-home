@@ -1,0 +1,4 @@
+# emailjs-config.js is safe to commit — contains no secrets
+# Real keys are stored in Netlify environment variables only
+.env
+.env.local

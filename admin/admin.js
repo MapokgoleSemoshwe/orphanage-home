@@ -1,11 +1,34 @@
-/* ============================================================
-   Hopeful Hearts — Admin Dashboard JS
+﻿/* ============================================================
+   Hopeful Hearts N/A Admin Dashboard JS
    ============================================================ */
 
 'use strict';
 
 /* ===== SUPABASE CLIENT ===== */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { EMAILJS_CONFIG } from './emailjs-config.js';
+
+let _ejsConfig = null;
+async function getEmailJSConfig() {
+  if (_ejsConfig) return _ejsConfig;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return null;
+  const res = await fetch(EMAILJS_CONFIG.configUrl);
+  if (!res.ok) throw new Error('Could not load email config');
+  _ejsConfig = await res.json();
+  emailjs.init(_ejsConfig.publicKey);
+  return _ejsConfig;
+}
+
+async function sendEmail(templateType, templateParams) {
+  const cfg = await getEmailJSConfig();
+  if (!cfg) { console.info('sendEmail skipped: not available locally.'); return; }
+  const templateId = cfg.templates[templateType];
+  if (!templateId) throw new Error('Unknown template: ' + templateType);
+  const result = await emailjs.send(cfg.serviceId, templateId, templateParams);
+  if (result.status !== 200) throw new Error(result.text);
+}
+
+
 
 const _supabaseUrl  = 'https://irzqdsxdiifosqzqdypj.supabase.co';
 const _supabaseKey  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyenFkc3hkaWlmb3NxenFkeXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MTgwMjYsImV4cCI6MjA5ODk5NDAyNn0.2mzC2WjiVIN2imGfKh0aKhdP97PCT6eLsTxOS4lfbh0';
@@ -221,7 +244,7 @@ const Stats = {
     // Use the live merged list from Donations (DB + local)
     const donations   = Donations.all ? Donations.all() : Store.get('hh_donations', []);
     const volunteers  = Store.get('hh_volunteers', []);
-    const sponsors    = Store.get('hh_sponsorships', []);
+    const sponsors    = Sponsorships.count ? Sponsorships.count() : 0;
     const events      = Store.get('hh_events', []);
     const inventory   = Store.get('hh_inventory', []);
 
@@ -232,7 +255,7 @@ const Stats = {
 
     document.getElementById('stat-donations').textContent  = 'R ' + totalDon.toLocaleString('en-ZA', {minimumFractionDigits:2, maximumFractionDigits:2});
     document.getElementById('stat-volunteers').textContent = volunteers.length;
-    document.getElementById('stat-sponsors').textContent   = sponsors.length;
+    document.getElementById('stat-sponsors').textContent   = sponsors;
     document.getElementById('stat-events').textContent     = upcoming;
     document.getElementById('stat-alerts').textContent     = alerts;
 
@@ -355,10 +378,10 @@ const Volunteers = {
         user_id:      v.id,
         name:         v.display_name || v.email,
         email:        v.email || '',
-        phone:        '—',
-        activity:     v.volunteer_role || '—',
-        skills:       v.volunteer_role || '—',
-        availability: '—',
+        phone:        'N/A',
+        activity:     v.volunteer_role || 'N/A',
+        skills:       v.volunteer_role || 'N/A',
+        availability: 'N/A',
         status:       'Pending',
         date:         v.created_at,
         _source:      'db'
@@ -399,7 +422,7 @@ const Volunteers = {
     );
     const tbody = document.getElementById('vol-tbody');
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading volunteers…</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading volunteersA¢â,¬A▌</td></tr>`;
       return;
     }
     if (!list.length) {
@@ -409,9 +432,9 @@ const Volunteers = {
       <tr>
         <td>${esc(v.name)}</td>
         <td>${esc(v.email)}</td>
-        <td>${esc(v.phone || '—')}</td>
-        <td>${esc(v.activity || v.skills || '—')}</td>
-        <td>${esc(v.availability || '—')}</td>
+        <td>${esc(v.phone || 'N/A')}</td>
+        <td>${esc(v.activity || v.skills || 'N/A')}</td>
+        <td>${esc(v.availability || 'N/A')}</td>
         <td><span class="status-badge status-${v.status.toLowerCase()}">${v.status}</span></td>
         <td class="action-btns">
           <button class="act-btn act-view"    onclick="Volunteers.view('${v.id}')"><i class="fa-solid fa-eye"></i> View</button>
@@ -425,18 +448,30 @@ const Volunteers = {
   async setStatus(id, status) {
     const v = this.all().find(v => String(v.id) === String(id));
     if (!v) return;
-    if (v._source === 'db') {
-      // status is not stored in users table — only track locally
-      Toast.show('Status tracking is local only for user-based volunteers.', 'info');
-    }
     const list = this._localRows;
     const item = list.find(x => String(x.id) === String(id));
     if (item) { item.status = status; this.save(list); this.render(); }
     Activity.add(status === 'Approved' ? 'fa-check' : 'fa-xmark', `Volunteer ${v.name} ${status.toLowerCase()}.`);
-    Toast.show(`Volunteer ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning');
+    if (status === 'Approved' && v.email) {
+      try {
+        await sendEmail('volunteerApproved', {
+          to_email:      v.email,
+          to_name:       v.name,
+          activity:      v.activity || v.skills || 'General Volunteering',
+          org_name:      'Hopeful Hearts Orphanage',
+          contact_email: 'hello@hopefulhearts.org'
+        });
+        Toast.show(`Volunteer approved - confirmation email sent to ${v.email}.`, 'success');
+      } catch (err) {
+        console.error('EmailJS error:', err);
+        Toast.show('Volunteer approved. Could not send email: ' + (err.message || err), 'warning');
+      }
+    } else {
+      Toast.show(`Volunteer ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning');
+    }
   },
 
-  async delete(id) {
+    async delete(id) {
     if (!confirm('Delete this volunteer?')) return;
     const v = this.all().find(v => String(v.id) === String(id));
     if (v && v._source === 'db') {
@@ -514,11 +549,11 @@ const Volunteers = {
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Name</span><span class="value">${esc(v.name)}</span></div>
         <div class="detail-item"><span class="label">Email</span><span class="value">${esc(v.email)}</span></div>
-        <div class="detail-item"><span class="label">Phone</span><span class="value">${esc(v.phone||'—')}</span></div>
-        <div class="detail-item"><span class="label">Activity</span><span class="value">${esc(v.activity||v.skills||'—')}</span></div>
-        <div class="detail-item"><span class="label">Availability</span><span class="value">${esc(v.availability||'—')}</span></div>
+        <div class="detail-item"><span class="label">Phone</span><span class="value">${esc(v.phone||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Activity</span><span class="value">${esc(v.activity||v.skills||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Availability</span><span class="value">${esc(v.availability||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${v.status.toLowerCase()}">${v.status}</span></span></div>
-        <div class="detail-item"><span class="label">Source</span><span class="value">${v._source === 'db' ? '🌐 Online (Supabase)' : '📝 Manually added'}</span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${v._source === 'db' ? 'Online (Supabase)' : 'Manually added'}</span></div>
        </div>`,
       `<button class="btn-primary" onclick="Volunteers.openForm(Volunteers.all().find(x=>String(x.id)==='${id}'))"><i class="fa-solid fa-pen"></i> Edit</button>`
     );
@@ -569,7 +604,7 @@ const Donations = {
         Toast.show('No donations found in database yet.', 'info');
       }
 
-      // Normalise rows — handle both old rows (no donor_name) and new rows (with donor_name)
+      // Normalise rows N/A handle both old rows (no donor_name) and new rows (with donor_name)
       this._dbRows = (data || []).map(d => ({
         id:      d.id,
         user_id: d.user_id,
@@ -584,7 +619,7 @@ const Donations = {
 
     } catch (err) {
       console.error('Donations DB error:', err);
-      Toast.show('Could not load donations — check RLS policies in Supabase: ' + err.message, 'error');
+      Toast.show('Could not load donations N/A check RLS policies in Supabase: ' + err.message, 'error');
     } finally {
       Loading.hide();
     }
@@ -598,7 +633,7 @@ const Donations = {
 
   /* ---- Return the merged list (DB + local manually-added) ---- */
   all() {
-    if (!this._ready) return [];   // still loading — return empty, not stale localStorage
+    if (!this._ready) return [];   // still loading N/A return empty, not stale localStorage
     return this._merged || [];
   },
 
@@ -618,7 +653,7 @@ const Donations = {
     const tbody  = document.getElementById('don-tbody');
 
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from database…</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading donations from databaseA¢â,¬A▌</td></tr>`;
       return;
     }
 
@@ -634,9 +669,9 @@ const Donations = {
         <td>${esc(d.name)}</td>
         <td>${esc(d.email)}</td>
         <td><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></td>
-        <td>${d.date ? new Date(d.date).toLocaleDateString() : '—'}</td>
+        <td>${d.date ? new Date(d.date).toLocaleDateString() : 'N/A'}</td>
         <td><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(d.notes||'—')}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(d.notes||'N/A')}</td>
         <td class="action-btns">
           <button class="act-btn act-view" onclick="Donations.view('${d.id}')"><i class="fa-solid fa-eye"></i> View</button>
           ${d._source !== 'db' ? `
@@ -662,7 +697,7 @@ const Donations = {
            ${['Completed','Pending','Failed'].map(s=>`<option ${(don?.status||'Completed')===s?'selected':''}>${s}</option>`).join('')}
          </select>
        </div>
-       <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional note…">${esc(don?.notes||'')}</textarea></div>`,
+       <div class="form-group"><label>Notes</label><textarea id="df-notes" placeholder="Optional noteA¢â,¬A▌">${esc(don?.notes||'')}</textarea></div>`,
       `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
        <button class="btn-primary" onclick="Donations.save_form('${don?.id||'null'}')">
          <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Save'}
@@ -721,12 +756,12 @@ const Donations = {
     Modal.open('Donation Details',
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Donor</span><span class="value">${esc(d.name)}</span></div>
-        <div class="detail-item"><span class="label">Email</span><span class="value">${esc(d.email||'—')}</span></div>
+        <div class="detail-item"><span class="label">Email</span><span class="value">${esc(d.email||'N/A')}</span></div>
         <div class="detail-item"><span class="label">Amount</span><span class="value"><strong>R${parseFloat(d.amount||0).toFixed(2)}</strong></span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleString() : '—'}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${d.date ? new Date(d.date).toLocaleString() : 'N/A'}</span></div>
         <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-${(d.status||'completed').toLowerCase()}">${d.status}</span></span></div>
-        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? '🌐 Online (Supabase)' : '📝 Manually recorded'}</span></div>
-        <div class="detail-item detail-message"><span class="label">Message / Notes</span><span class="value" style="white-space:pre-wrap">${esc(d.notes||'—')}</span></div>
+        <div class="detail-item"><span class="label">Source</span><span class="value">${d._source === 'db' ? 'Online (Supabase)' : 'Manually recorded'}</span></div>
+        <div class="detail-item detail-message"><span class="label">Message / Notes</span><span class="value" style="white-space:pre-wrap">${esc(d.notes||'N/A')}</span></div>
        </div>`, '');
   }
 };
@@ -756,9 +791,9 @@ const Messages = {
       <tr style="${m.status==='unread'?'font-weight:600;':''}" >
         <td>${esc(m.name)}</td>
         <td>${esc(m.email)}</td>
-        <td>${esc(m.subject||'—')}</td>
+        <td>${esc(m.subject||'N/A')}</td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.message||'')}</td>
-        <td>${m.date ? new Date(m.date).toLocaleDateString() : '—'}</td>
+        <td>${m.date ? new Date(m.date).toLocaleDateString() : 'N/A'}</td>
         <td class="action-btns">
           <button class="act-btn act-view"  onclick="Messages.view(${m.id})"><i class="fa-solid fa-eye"></i> View</button>
           <button class="act-btn act-read"  onclick="Messages.markRead(${m.id})"><i class="fa-solid fa-check-double"></i></button>
@@ -785,8 +820,8 @@ const Messages = {
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">From</span><span class="value">${esc(m.name)}</span></div>
         <div class="detail-item"><span class="label">Email</span><span class="value">${esc(m.email)}</span></div>
-        <div class="detail-item"><span class="label">Subject</span><span class="value">${esc(m.subject||'—')}</span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${m.date ? new Date(m.date).toLocaleDateString() : '—'}</span></div>
+        <div class="detail-item"><span class="label">Subject</span><span class="value">${esc(m.subject||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${m.date ? new Date(m.date).toLocaleDateString() : 'N/A'}</span></div>
         <div class="detail-item detail-message"><span class="label">Message</span>
           <span class="value" style="white-space:pre-wrap">${esc(m.message||'')}</span>
         </div>
@@ -821,6 +856,9 @@ const Events = {
 
     document.getElementById('add-event-btn').addEventListener('click', () => this.openForm());
     document.getElementById('evt-search').addEventListener('input', () => this.render());
+    
+    const scanBtn = document.getElementById('btn-scan-qr');
+    if (scanBtn) scanBtn.addEventListener('click', () => this.startCheckInScan());
 
     this.render();
     this.loadFromDB();
@@ -840,9 +878,19 @@ const Events = {
         name: e.name,
         description: e.description,
         date: e.date,
+        time: e.time,
         location: e.location,
-        maxAttendees: e.max_attendees,
+        venue_name: e.venue_name,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        category: e.category,
+        capacity: e.capacity,
         registered: e.registered,
+        is_registration_open: e.is_registration_open,
+        registration_deadline: e.registration_deadline,
+        donation_goal: e.donation_goal,
+        volunteer_requirements: e.volunteer_requirements,
+        image_url: e.image_url,
         _source: 'db'
       }));
     } catch (err) {
@@ -873,7 +921,7 @@ const Events = {
     const tbody = document.getElementById('evt-tbody');
     
     if (!this._ready) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading events from database…</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading events from databaseA¢â,¬A▌</td></tr>`;
       return;
     }
     
@@ -885,10 +933,10 @@ const Events = {
     tbody.innerHTML = list.map(e => `
       <tr>
         <td><strong>${esc(e.name)}</strong></td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(e.description||'—')}</td>
-        <td>${e.date ? new Date(e.date).toLocaleDateString() : '—'}</td>
-        <td>${esc(e.location||'—')}</td>
-        <td>${e.maxAttendees||100}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.82rem;">${esc(e.description||'N/A')}</td>
+        <td>${e.date ? new Date(e.date).toLocaleDateString() : 'N/A'}</td>
+        <td>${esc(e.venue_name||e.location||'N/A')}</td>
+        <td>${e.capacity||100}</td>
         <td>${e.registered||0}</td>
         <td class="action-btns">
           <button class="act-btn act-view"   onclick="Events.view('${e.id}')"><i class="fa-solid fa-eye"></i> View</button>
@@ -901,13 +949,39 @@ const Events = {
   openForm(ev = null) {
     const isEdit = !!ev;
     Modal.open(isEdit ? 'Edit Event' : 'Create Event',
-      `<div class="form-group"><label>Event Name</label><input id="ef-name" value="${esc(ev?.name||'')}" placeholder="Annual Gala" /></div>
-       <div class="form-group"><label>Description</label><textarea id="ef-desc" placeholder="What's this event about?">${esc(ev?.description||'')}</textarea></div>
-       <div class="form-row">
-         <div class="form-group"><label>Date</label><input id="ef-date" type="date" value="${ev?.date ? ev.date.slice(0,10) : ''}" /></div>
-         <div class="form-group"><label>Location</label><input id="ef-loc" value="${esc(ev?.location||'')}" placeholder="City Hall" /></div>
+      `<div class="form-row">
+         <div class="form-group"><label>Event Name *</label><input id="ef-name" value="${esc(ev?.name||'')}" /></div>
+         <div class="form-group"><label>Category</label>
+           <select id="ef-category">
+             ${['General','Fundraiser','Volunteer','Social','Workshop'].map(c=>`<option ${(ev?.category||'')===c?'selected':''}>${c}</option>`).join('')}
+           </select>
+         </div>
        </div>
-       <div class="form-group"><label>Max Attendees</label><input id="ef-max" type="number" min="1" value="${ev?.maxAttendees||''}" placeholder="100" /></div>`,
+       <div class="form-row">
+         <div class="form-group"><label>Date *</label><input id="ef-date" type="date" value="${ev?.date ? ev.date.slice(0,10) : ''}" /></div>
+         <div class="form-group"><label>Time</label><input id="ef-time" type="time" value="${ev?.time||''}" /></div>
+       </div>
+       <div class="form-row">
+         <div class="form-group"><label>Venue Name</label><input id="ef-venue" value="${esc(ev?.venue_name||ev?.location||'')}" /></div>
+         <div class="form-group"><label>Image URL</label><input id="ef-image" value="${esc(ev?.image_url||'')}" /></div>
+       </div>
+       <div class="form-row">
+         <div class="form-group"><label>Latitude</label><input id="ef-lat" type="number" step="any" value="${ev?.latitude||''}" /></div>
+         <div class="form-group"><label>Longitude</label><input id="ef-lng" type="number" step="any" value="${ev?.longitude||''}" /></div>
+       </div>
+       <div class="form-row">
+         <div class="form-group"><label>Capacity *</label><input id="ef-cap" type="number" min="1" value="${ev?.capacity||ev?.maxAttendees||100}" /></div>
+         <div class="form-group"><label>Deadline</label><input id="ef-deadline" type="date" value="${ev?.registration_deadline ? ev.registration_deadline.slice(0,10) : ''}" /></div>
+       </div>
+       <div class="form-row">
+         <div class="form-group"><label>Donation Goal (R)</label><input id="ef-goal" type="number" step="any" value="${ev?.donation_goal||''}" /></div>
+         <div class="form-group"><label>Volunteer Requirements</label><input id="ef-volreq" value="${esc(ev?.volunteer_requirements||'')}" /></div>
+       </div>
+       <div class="form-group"><label>Description</label><textarea id="ef-desc">${esc(ev?.description||'')}</textarea></div>
+       <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+         <input type="checkbox" id="ef-open" style="width:20px;height:20px;" ${(ev?.is_registration_open !== false)?'checked':''} />
+         <label for="ef-open" style="margin:0;">Registration Open</label>
+       </div>`,
       `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
        <button class="btn-primary" onclick="Events.save_form('${ev?.id||'null'}')">
          <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Create'}
@@ -919,10 +993,31 @@ const Events = {
     const name = document.getElementById('ef-name').value.trim();
     if (!name) { Toast.show('Event name is required.','error'); return; }
     
-    const description = document.getElementById('ef-desc').value.trim();
     const date = document.getElementById('ef-date').value;
-    const location = document.getElementById('ef-loc').value.trim();
-    const maxAttendees = parseInt(document.getElementById('ef-max').value) || 100;
+    if (!date) { Toast.show('Date is required.','error'); return; }
+
+    const dataObj = {
+      name,
+      description: document.getElementById('ef-desc').value.trim(),
+      date,
+      time: document.getElementById('ef-time').value || null,
+      venue_name: document.getElementById('ef-venue').value.trim(),
+      category: document.getElementById('ef-category').value,
+      image_url: document.getElementById('ef-image').value.trim(),
+      capacity: parseInt(document.getElementById('ef-cap').value) || 100,
+      is_registration_open: document.getElementById('ef-open').checked
+    };
+
+    const lat = document.getElementById('ef-lat').value;
+    if (lat) dataObj.latitude = parseFloat(lat);
+    const lng = document.getElementById('ef-lng').value;
+    if (lng) dataObj.longitude = parseFloat(lng);
+    const deadline = document.getElementById('ef-deadline').value;
+    if (deadline) dataObj.registration_deadline = deadline;
+    const goal = document.getElementById('ef-goal').value;
+    if (goal) dataObj.donation_goal = parseFloat(goal);
+    const volreq = document.getElementById('ef-volreq').value.trim();
+    if (volreq) dataObj.volunteer_requirements = volreq;
     
     const editingEvent = id !== 'null' ? this.all().find(e => String(e.id) === String(id)) : null;
     
@@ -931,13 +1026,7 @@ const Events = {
         Loading.show();
         const { error } = await DB
           .from('events')
-          .update({
-            name,
-            description,
-            date,
-            location,
-            max_attendees: maxAttendees
-          })
+          .update(dataObj)
           .eq('id', id);
         
         if (error) throw error;
@@ -956,16 +1045,10 @@ const Events = {
     if (id === 'null' && this._ready) {
       try {
         Loading.show();
+        dataObj.registered = 0;
         const { error } = await DB
           .from('events')
-          .insert({
-            name,
-            description,
-            date,
-            location,
-            max_attendees: maxAttendees,
-            registered: 0
-          });
+          .insert(dataObj);
         
         if (!error) {
           Toast.show('Event created in Database.', 'success');
@@ -973,32 +1056,28 @@ const Events = {
           await this.loadFromDB();
           return;
         }
-        console.warn('Fallback to local event creation due to DB error:', error);
+        console.error('DB Insert Error:', error);
+        Toast.show('Failed to create event in database: ' + error.message, 'error');
       } catch (err) {
-        console.warn('Fallback to local event creation:', err);
+        console.error(err);
+        Toast.show('Failed to create event in database: ' + err.message, 'error');
       } finally {
         Loading.hide();
       }
+      return; // Do not fallback to local storage
     }
 
     const list = [...this._localRows];
-    const data = {
-      name,
-      description,
-      date,
-      location,
-      maxAttendees,
-      _source: 'local'
-    };
+    const localData = { ...dataObj, _source: 'local' };
 
     if (editingEvent) {
       const i = list.findIndex(e => String(e.id) === String(id));
-      if (i > -1) list[i] = { ...list[i], ...data };
+      if (i > -1) list[i] = { ...list[i], ...localData };
       Toast.show('Local event updated.','success');
     } else {
-      data.id = 'local_' + Store.nextId(list); 
-      data.registered = 0;
-      list.push(data);
+      localData.id = 'local_' + Store.nextId(list); 
+      localData.registered = 0;
+      list.push(localData);
       Activity.add('fa-calendar-plus', `Event created: ${name}`);
       Toast.show('Local event created.','success');
     }
@@ -1042,18 +1121,18 @@ const Events = {
     const e = this.all().find(x => String(x.id) === String(id));
     if (!e) return;
 
-    Modal.open('Event Details & RSVPs',
+    Modal.open('Event Details & Registrations',
       `<div class="detail-grid">
         <div class="detail-item"><span class="label">Event Name</span><span class="value"><strong>${esc(e.name)}</strong></span></div>
-        <div class="detail-item"><span class="label">Date</span><span class="value">${e.date ? new Date(e.date).toLocaleDateString() : '—'}</span></div>
-        <div class="detail-item"><span class="label">Location</span><span class="value">${esc(e.location||'—')}</span></div>
-        <div class="detail-item"><span class="label">Spots Filled</span><span class="value">${e.registered||0} / ${(e.maxAttendees || e.max_attendees || 100)}</span></div>
-        <div class="detail-item detail-message"><span class="label">Description</span><span class="value">${esc(e.description||'—')}</span></div>
+        <div class="detail-item"><span class="label">Date</span><span class="value">${e.date ? new Date(e.date).toLocaleDateString() : 'N/A'}</span></div>
+        <div class="detail-item"><span class="label">Location</span><span class="value">${esc(e.venue_name||e.location||'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Registration</span><span class="value">${e.registered||0} / ${e.capacity||100}</span></div>
+        <div class="detail-item detail-message"><span class="label">Description</span><span class="value">${esc(e.description||'N/A')}</span></div>
        </div>
        <div style="margin-top:20px;">
-         <h4 style="font-size:0.95rem;border-bottom:1px solid var(--border-color, #e2e8f0);padding-bottom:8px;margin-bottom:10px;"><i class="fa-solid fa-users"></i> Registered RSVPs</h4>
-         <ul id="event-rsvp-list" style="list-style:none;max-height:150px;overflow-y:auto;font-size:0.85rem;display:grid;gap:6px;padding:0;">
-           <li>Loading RSVPs...</li>
+         <h4 style="font-size:0.95rem;border-bottom:1px solid var(--border-color, #e2e8f0);padding-bottom:8px;margin-bottom:10px;"><i class="fa-solid fa-users"></i> Registrations</h4>
+         <ul id="event-rsvp-list" style="list-style:none;max-height:250px;overflow-y:auto;font-size:0.85rem;display:grid;gap:6px;padding:0;">
+           <li>Loading registrations...</li>
          </ul>
        </div>`, '');
 
@@ -1061,29 +1140,110 @@ const Events = {
     if (e._source === 'db') {
       try {
         const { data, error } = await DB
-          .from('event_rsvps')
-          .select('user_name, user_email, created_at')
-          .eq('event_id', id);
+          .from('event_registrations')
+          .select('*')
+          .eq('event_id', id)
+          .order('registration_date', { ascending: false });
 
         if (error) throw error;
 
         if (data && data.length > 0) {
           listEl.innerHTML = data.map(r => 
-            `<li style="background:rgba(0,0,0,0.02);padding:6px 10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
-              <span><strong>${esc(r.user_name || 'Supporter')}</strong> (${esc(r.user_email)})</span>
-              <span style="font-size:0.75rem;color:var(--text-muted, #64748b);">${new Date(r.created_at).toLocaleDateString()}</span>
+            `<li style="background:rgba(0,0,0,0.02);padding:8px 12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong>${esc(r.name)}</strong> <span style="color:#64748b;">(${esc(r.attendance_type)})</span>
+                <div style="font-size:0.75rem;color:#94a3b8;">${esc(r.email)}</div>
+              </div>
+              <div style="text-align:right;">
+                <span class="status-badge status-${r.checked_in ? 'completed' : 'pending'}">${r.checked_in ? 'Checked In' : 'Pending'}</span>
+                <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">#${String(r.id).padStart(5, '0')}</div>
+              </div>
             </li>`
           ).join('');
         } else {
-          listEl.innerHTML = '<li style="color:var(--text-muted, #64748b);font-style:italic;">No online RSVPs yet.</li>';
+          listEl.innerHTML = '<li style="color:var(--text-muted, #64748b);font-style:italic;">No registrations yet.</li>';
         }
       } catch (err) {
         console.warn(err);
-        listEl.innerHTML = '<li style="color:#ef4444;">Failed to load RSVPs from database.</li>';
+        listEl.innerHTML = '<li style="color:#ef4444;">Failed to load registrations from database.</li>';
       }
     } else {
-      listEl.innerHTML = '<li style="color:var(--text-muted, #64748b);font-style:italic;">Offline event. RSVPs are stored in user sessions.</li>';
+      listEl.innerHTML = '<li style="color:var(--text-muted, #64748b);font-style:italic;">Offline event.</li>';
     }
+  },
+
+  startCheckInScan() {
+    Modal.open('Scan Ticket QR Code', 
+      `<div id="qr-reader" style="width:100%; max-width:400px; margin: 0 auto;"></div>
+       <div id="qr-reader-results" style="margin-top:20px; text-align:center; font-weight:600;"></div>`, 
+      `<button class="btn-cancel" onclick="Events.stopScan()">Close Scanner</button>`
+    );
+    
+    setTimeout(() => {
+      if (typeof Html5QrcodeScanner !== 'undefined') {
+        this.html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
+        this.html5QrcodeScanner.render(this.onScanSuccess.bind(this), this.onScanFailure.bind(this));
+      } else {
+        document.getElementById('qr-reader-results').innerHTML = '<span style="color:red;">QR Scanner library not loaded.</span>';
+      }
+    }, 200);
+  },
+
+  stopScan() {
+    if (this.html5QrcodeScanner) {
+      this.html5QrcodeScanner.clear().catch(error => console.error("Failed to clear html5QrcodeScanner. ", error));
+    }
+    Modal.close();
+  },
+
+  async onScanSuccess(decodedText, decodedResult) {
+    // Prevent multiple scans
+    if (this.isScanningProc) return;
+    this.isScanningProc = true;
+    
+    try {
+      const data = JSON.parse(decodedText);
+      if (data.reg_id && data.qr_code_id) {
+        document.getElementById('qr-reader-results').innerHTML = `<span style="color:#3b82f6;">Processing Registration #${data.reg_id}...</span>`;
+        
+        // Verify and update in DB
+        const { data: reg, error: fetchErr } = await DB
+          .from('event_registrations')
+          .select('*, events(name)')
+          .eq('id', data.reg_id)
+          .eq('qr_code_id', data.qr_code_id)
+          .single();
+          
+        if (fetchErr || !reg) {
+          document.getElementById('qr-reader-results').innerHTML = `<span style="color:#ef4444;"><i class="fa-solid fa-xmark"></i> Invalid Ticket!</span>`;
+        } else if (reg.checked_in) {
+          document.getElementById('qr-reader-results').innerHTML = `<span style="color:#f59e0b;"><i class="fa-solid fa-triangle-exclamation"></i> Already Checked In at ${new Date(reg.arrival_time).toLocaleTimeString()}</span>`;
+        } else {
+          // Check in
+          const { error: updErr } = await DB
+            .from('event_registrations')
+            .update({ checked_in: true, arrival_time: new Date().toISOString() })
+            .eq('id', data.reg_id);
+            
+          if (updErr) throw updErr;
+          
+          document.getElementById('qr-reader-results').innerHTML = `<span style="color:#10b981;"><i class="fa-solid fa-check"></i> Success! ${reg.name} checked in for ${reg.events.name}.</span>`;
+          Activity.add('fa-qrcode', `${reg.name} checked into ${reg.events.name}`);
+        }
+      } else {
+        document.getElementById('qr-reader-results').innerHTML = `<span style="color:#ef4444;">Unrecognized QR Code format.</span>`;
+      }
+    } catch (e) {
+      console.warn("Scan parse error", e);
+      document.getElementById('qr-reader-results').innerHTML = `<span style="color:#ef4444;">Invalid QR Code.</span>`;
+    }
+    
+    // reset lock after 3 seconds
+    setTimeout(() => { this.isScanningProc = false; }, 3000);
+  },
+
+  onScanFailure(error) {
+    // ignore
   }
 };;
 
@@ -1142,7 +1302,7 @@ const Inventory = {
              ${['Food','Education','Medical','Bedding','Clothing','Hygiene','Other'].map(c=>`<option ${(item?.category||'')===c?'selected':''}>${c}</option>`).join('')}
            </select>
          </div>
-         <div class="form-group"><label>Unit</label><input id="if-unit" value="${esc(item?.unit||'pcs')}" placeholder="pcs, kg, boxes…" /></div>
+         <div class="form-group"><label>Unit</label><input id="if-unit" value="${esc(item?.unit||'pcs')}" placeholder="pcs, kg, boxesA¢â,¬A▌" /></div>
        </div>
        <div class="form-row">
          <div class="form-group"><label>Quantity</label><input id="if-qty" type="number" min="0" value="${item?.quantity??''}" placeholder="0" /></div>
@@ -1198,99 +1358,113 @@ const Inventory = {
   }
 };
 
-/* ===== SPONSORSHIPS ===== */
+/* ===== SPONSORSHIPS (live subscribers from DB) ===== */
 const Sponsorships = {
-  KEY: 'hh_sponsorships',
+  _rows: [],
+  _ready: false,
+
   init() {
     this.render();
-    document.getElementById('add-sponsor-btn').addEventListener('click', () => this.openForm());
+    this.loadFromDB();
+    document.getElementById('refresh-sponsors-btn').addEventListener('click', () => this.loadFromDB());
+    document.getElementById('spon-search').addEventListener('input', () => this.render());
   },
-  all()  { return Store.get(this.KEY, []); },
-  save(list) { Store.set(this.KEY, list); Stats.update(); },
+
+  async loadFromDB() {
+    try {
+      Loading.show();
+      const { data, error } = await DB
+        .from('users')
+        .select('id, display_name, email, subscription_amount, subscription_day, last_subscription_date')
+        .eq('is_subscriber', 'Y')
+        .order('display_name', { ascending: true });
+      if (error) throw error;
+      this._rows = data || [];
+    } catch (err) {
+      console.error('Sponsorships DB error:', err);
+      Toast.show('Could not load subscribers: ' + err.message, 'error');
+    } finally {
+      Loading.hide();
+    }
+    this._ready = true;
+    this.render();
+    Stats.update();
+  },
+
+  count() { return this._rows.length; },
+
   render() {
-    const list = this.all();
     const tbody = document.getElementById('spon-tbody');
-    if (!list.length) {
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No sponsorships found.</td></tr>`; return;
+    if (!this._ready) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:32px;"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Loading subscribersA¢â,¬A▌</td></tr>`;
+      return;
     }
-    tbody.innerHTML = list.map(s => `
-      <tr>
-        <td>${esc(s.child)}</td>
-        <td>${esc(s.sponsor)}</td>
-        <td>${esc(s.email||'—')}</td>
-        <td><strong>R${parseFloat(s.amount||0).toFixed(2)}/mo</strong></td>
-        <td><span class="status-badge status-${(s.paymentStatus||'pending').toLowerCase()}">${s.paymentStatus||'Pending'}</span></td>
-        <td>${s.nextPayment ? new Date(s.nextPayment).toLocaleDateString() : '—'}</td>
-        <td class="action-btns">
-          <button class="act-btn act-email"  onclick="Sponsorships.remind(${s.id})"><i class="fa-solid fa-envelope"></i> Remind</button>
-          <button class="act-btn act-edit"   onclick="Sponsorships.openForm(Sponsorships.all().find(x=>x.id===${s.id}))"><i class="fa-solid fa-pen"></i></button>
-          <button class="act-btn act-delete" onclick="Sponsorships.delete(${s.id})"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>`).join('');
-  },
-  openForm(sp = null) {
-    const isEdit = !!sp;
-    Modal.open(isEdit ? 'Edit Sponsorship' : 'Add Sponsorship',
-      `<div class="form-row">
-         <div class="form-group"><label>Child Name</label><input id="sf-child" value="${esc(sp?.child||'')}" placeholder="Child's name" /></div>
-         <div class="form-group"><label>Sponsor Name</label><input id="sf-sponsor" value="${esc(sp?.sponsor||'')}" placeholder="Sponsor's name" /></div>
-       </div>
-       <div class="form-row">
-         <div class="form-group"><label>Sponsor Email</label><input id="sf-email" type="email" value="${esc(sp?.email||'')}" placeholder="sponsor@email.com" /></div>
-         <div class="form-group"><label>Monthly Amount (R)</label><input id="sf-amount" type="number" min="0" step="0.01" value="${sp?.amount||''}" placeholder="50.00" /></div>
-       </div>
-       <div class="form-row">
-         <div class="form-group"><label>Payment Status</label>
-           <select id="sf-pay">
-             ${['Paid','Pending','Overdue'].map(s=>`<option ${(sp?.paymentStatus||'Pending')===s?'selected':''}>${s}</option>`).join('')}
-           </select>
-         </div>
-         <div class="form-group"><label>Next Payment Date</label><input id="sf-next" type="date" value="${sp?.nextPayment ? sp.nextPayment.slice(0,10) : ''}" /></div>
-       </div>`,
-      `<button class="btn-cancel" onclick="Modal.close()">Cancel</button>
-       <button class="btn-primary" onclick="Sponsorships.save_form(${sp?.id||'null'})">
-         <i class="fa-solid fa-floppy-disk"></i> ${isEdit?'Update':'Add'}
-       </button>`
+    const q = (document.getElementById('spon-search')?.value || '').toLowerCase();
+    const list = this._rows.filter(s =>
+      !q || `${s.display_name} ${s.email}`.toLowerCase().includes(q)
     );
-  },
-  save_form(id) {
-    const child   = document.getElementById('sf-child').value.trim();
-    const sponsor = document.getElementById('sf-sponsor').value.trim();
-    if (!child || !sponsor) { Toast.show('Child and sponsor names required.','error'); return; }
-    const list = this.all();
-    const data = {
-      child, sponsor,
-      email:         document.getElementById('sf-email').value.trim(),
-      amount:        parseFloat(document.getElementById('sf-amount').value) || 0,
-      paymentStatus: document.getElementById('sf-pay').value,
-      nextPayment:   document.getElementById('sf-next').value
-    };
-    if (id) {
-      const i = list.findIndex(s => s.id === id);
-      if (i > -1) list[i] = { ...list[i], ...data };
-      Toast.show('Sponsorship updated.','success');
-    } else {
-      data.id = Store.nextId(list); list.push(data);
-      Activity.add('fa-child-reaching', `New sponsorship: ${sponsor} → ${child}`);
-      Toast.show('Sponsorship added.','success');
+    if (!list.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No subscribed sponsors found.</td></tr>`; return;
     }
-    this.save(list); Modal.close(); this.render();
+    tbody.innerHTML = list.map(s => {
+      const amount = parseFloat(s.subscription_amount || 0);
+      const lastDate = s.last_subscription_date
+        ? new Date(s.last_subscription_date).toLocaleDateString()
+        : 'N/A';
+      const billingDay = s.subscription_day || 1;
+      return `<tr>
+        <td><strong>${esc(s.display_name || 'N/A')}</strong></td>
+        <td>${esc(s.email)}</td>
+        <td><strong>R${amount.toFixed(2)}/mo</strong></td>
+        <td>Day ${billingDay}</td>
+        <td>${lastDate}</td>
+        <td><span class="status-badge status-active">Active</span></td>
+        <td class="action-btns">
+          <button class="act-btn act-view" onclick="Sponsorships.view('${s.id}')"><i class="fa-solid fa-eye"></i> View</button>
+          <button class="act-btn act-email" onclick="Sponsorships.remind('${s.id}')"><i class="fa-solid fa-envelope"></i> Email</button>
+        </td>
+      </tr>`;
+    }).join('');
   },
-  remind(id) {
-    const s = this.all().find(s => s.id === id);
+
+  view(id) {
+    const s = this._rows.find(x => x.id === id);
     if (!s) return;
-    if (s.email) {
-      window.location.href = `mailto:${s.email}?subject=Sponsorship%20Payment%20Reminder&body=Dear%20${encodeURIComponent(s.sponsor)}%2C%0A%0AThis%20is%20a%20friendly%20reminder%20that%20your%20sponsorship%20payment%20for%20${encodeURIComponent(s.child)}%20is%20due.%0A%0AThank%20you!`;
-    } else {
-      Toast.show('No email on file for this sponsor.','warning');
+    const amount = parseFloat(s.subscription_amount || 0);
+    Modal.open('Subscriber Details',
+      `<div class="detail-grid">
+        <div class="detail-item"><span class="label">Name</span><span class="value">${esc(s.display_name || 'N/A')}</span></div>
+        <div class="detail-item"><span class="label">Email</span><span class="value">${esc(s.email)}</span></div>
+        <div class="detail-item"><span class="label">Monthly Amount</span><span class="value"><strong>R${amount.toFixed(2)}</strong></span></div>
+        <div class="detail-item"><span class="label">Billing Day</span><span class="value">Day ${s.subscription_day || 1} of each month</span></div>
+        <div class="detail-item"><span class="label">Last Payment</span><span class="value">${s.last_subscription_date ? new Date(s.last_subscription_date).toLocaleString() : 'Not yet processed'}</span></div>
+        <div class="detail-item"><span class="label">Status</span><span class="value"><span class="status-badge status-active">Active Subscriber</span></span></div>
+       </div>`, '');
+  },
+
+  async remind(id) {
+    const s = this._rows.find(x => x.id === id);
+    if (!s) return;
+    try {
+      await sendEmail('sponsorFailed', {
+        to_email:      s.email,
+        to_name:       s.display_name || 'Sponsor',
+        amount:        `R${parseFloat(s.subscription_amount || 0).toFixed(2)}`,
+        due_date:      s.subscription_day ? `Day ${s.subscription_day} of each month` : 'N/A',
+        org_name:      'Hopeful Hearts Orphanage',
+        contact_email: 'hello@hopefulhearts.org'
+      });
+      Toast.show(`Email sent to ${s.display_name || s.email}.`, 'success');
+      Activity.add('fa-envelope', `Subscription email sent to ${s.display_name || s.email}.`);
+    } catch (err) {
+      console.error('EmailJS remind error:', err);
+      Toast.show('Could not send email: ' + (err.text || err.message), 'error');
     }
   },
-  delete(id) {
-    if (!confirm('Delete this sponsorship?')) return;
-    const list = this.all().filter(s => s.id !== id);
-    this.save(list); this.render();
-    Toast.show('Sponsorship deleted.','success');
-  }
+
+  // kept for backward compat (Stats, seedDemo)
+  all() { return this._rows; },
+  checkDuePayments() {}
 };
 
 /* ===== REPORTS / PDF EXPORT ===== */
@@ -1403,6 +1577,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Events.init();
   Inventory.init();
   Sponsorships.init();
+  Sponsorships.checkDuePayments();
 
   // Dashboard stats + charts + activity
   Stats.update();
@@ -1475,7 +1650,7 @@ function seedDemo() {
     return d.toISOString();
   };
 
-  // Note: donations are now fetched live from Supabase — no local seed needed
+  // Note: donations are now fetched live from Supabase N/A no local seed needed
 
   Store.set('hh_volunteers', [
     { id:1, name:'Sara Ahmed',    email:'sara@email.com',   phone:'555-0101', skills:'Teaching, Cooking',    availability:'Weekends',  status:'Approved', date:date(-30) },
@@ -1496,12 +1671,6 @@ function seedDemo() {
     { id:3, name:'Fundraising Gala',      description:'Evening gala for major donors.',            date:date(35).slice(0,10), location:'Grand Hotel',  maxAttendees:200, registered:87 }
   ]);
 
-  Store.set('hh_sponsorships', [
-    { id:1, child:'Michael Olu',   sponsor:'John & Mary Doe',  email:'johndoe@email.com',    amount:50,  paymentStatus:'Paid',    nextPayment:date(25).slice(0,10) },
-    { id:2, child:'Aisha Bello',   sponsor:'Green Corp',       email:'green@corp.com',        amount:100, paymentStatus:'Pending', nextPayment:date(5).slice(0,10)  },
-    { id:3, child:'Luis Herrera',  sponsor:'Dr. Amara Diallo',  email:'amara@email.com',      amount:75,  paymentStatus:'Overdue', nextPayment:date(-3).slice(0,10) }
-  ]);
-
   // Activity log
   Activity.add('fa-seedling','Dashboard initialized with demo data.');
   Notifs.add('fa-bell','Welcome to Hopeful Hearts Admin Dashboard!');
@@ -1514,7 +1683,6 @@ function seedDemo() {
   Messages.render();
   Events.render();
   Inventory.render();
-  Sponsorships.render();
   Activity.render();
   Notifs.updateDot();
 }
@@ -1528,5 +1696,4 @@ window.Inventory    = Inventory;
 window.Sponsorships = Sponsorships;
 window.Reports      = Reports;
 window.Modal        = Modal;
-
 

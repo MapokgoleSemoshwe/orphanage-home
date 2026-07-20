@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
@@ -16,6 +16,10 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <!-- jsPDF for PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- EmailJS (browser SDK — keys loaded at runtime via Netlify Function) -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <!-- HTML5 QRCode -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <!-- Dashboard CSS -->
   <link rel="stylesheet" href="admin.css" />
 </head>
@@ -279,7 +283,10 @@
       <section class="section" id="section-events">
         <div class="section-header">
           <h2>Event Management</h2>
-          <button class="btn-primary" id="add-event-btn"><i class="fa-solid fa-plus"></i> Create Event</button>
+          <div style="display:flex; gap:12px;">
+            <button class="btn-primary" id="btn-scan-qr" style="background-color: #10b981;"><i class="fa-solid fa-qrcode"></i> Scan QR (Check-in)</button>
+            <button class="btn-primary" id="add-event-btn"><i class="fa-solid fa-plus"></i> Create Event</button>
+          </div>
         </div>
         <div class="table-toolbar">
           <input type="text" class="table-search" id="evt-search" placeholder="Search events…" />
@@ -319,15 +326,18 @@
       <!-- ==================== SPONSORSHIPS ==================== -->
       <section class="section" id="section-sponsorships">
         <div class="section-header">
-          <h2>Sponsorship Management</h2>
-          <button class="btn-primary" id="add-sponsor-btn"><i class="fa-solid fa-plus"></i> Add Sponsorship</button>
+          <h2>Subscribed Sponsors</h2>
+          <button class="btn-primary" id="refresh-sponsors-btn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+        </div>
+        <div class="table-toolbar">
+          <input type="text" class="table-search" id="spon-search" placeholder="Search sponsors…" />
         </div>
         <div class="table-wrap">
           <table class="data-table" id="spon-table">
             <thead>
               <tr>
-                <th>Child Name</th><th>Sponsor Name</th><th>Email</th>
-                <th>Monthly Amount</th><th>Payment Status</th><th>Next Payment</th><th>Actions</th>
+                <th>Name</th><th>Email</th><th>Monthly Amount</th>
+                <th>Billing Day</th><th>Last Payment</th><th>Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="spon-tbody"></tbody>
@@ -398,7 +408,7 @@
   </div>
 
   <!-- Dashboard JS -->
-  <script type="module" src="admin.js"></script>
+  <script type="module" src="admin.js?v=7"></script>
 
   <!-- Supabase Auth Guard + Admin Session -->
   <script type="module">
